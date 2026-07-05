@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 
 #include "config.h"
@@ -11,11 +12,13 @@
 #include "hardware/display_font.h"
 #include "services/adsb_client.h"
 #include "services/radar_location.h"
+#include "services/route_client.h"
 #include "ui/radar_range.h"
 #include "ui/radar_theme.h"
 #include "ui/runway_overlay.h"
 
-namespace fonts = lgfx::v1::fonts;
+// fonts::* glyphs resolve via LovyanGFX's global `fonts` namespace; a local
+// `namespace fonts = lgfx::v1::fonts;` alias collides with that shim.
 
 namespace ui {
 namespace radar {
@@ -25,9 +28,13 @@ uint16_t kColorGrid = 0x0320;
 uint16_t kColorLabel = 0xFFFF;
 uint16_t kColorCenter = 0xFFFF;
 uint16_t kColorAircraft = 0x001F;
+uint16_t kColorMilitary = 0x001F;
+uint16_t kColorCommercial = 0x001F;
+uint16_t kColorPrivate = 0x001F;
 uint16_t kColorTrackVector = 0xFFFF;
 uint16_t kColorTagType = 0x5DFF;
 uint16_t kColorTagAltitude = 0xFFE0;
+uint16_t kColorTagRoute = 0x5DFF;
 uint16_t kColorRunway = 0x4D5F;
 uint16_t kColorRunwayLabel = 0x7DFF;
 
@@ -174,29 +181,52 @@ void initTagLabelMetrics() {
   s_tag_label_metrics_ready = true;
 }
 
+// GC9A01 BGR panel: swap R/B in color565 so logical red renders red on screen.
+// Used for the aircraft symbols (the class colors share this path).
+uint16_t aircraftColor565(uint8_t r, uint8_t g, uint8_t b) {
+  return config::kDisplayRgbOrder ? tft.color565(b, g, r) : tft.color565(r, g, b);
+}
+
 void initPalette() {
   radar::kColorBackground = tft.color565(radar::kBgR, radar::kBgG, radar::kBgB);
   radar::kColorGrid = tft.color565(radar::kGridR, radar::kGridG, radar::kGridB);
   radar::kColorLabel = tft.color565(255, 255, 255);
   radar::kColorCenter = tft.color565(255, 255, 255);
-  // GC9A01 BGR panel: swap R/B in color565 so logical red renders red on screen.
-  if (config::kDisplayRgbOrder) {
-    radar::kColorAircraft =
-        tft.color565(radar::kAircraftB, radar::kAircraftG, radar::kAircraftR);
-  } else {
-    radar::kColorAircraft =
-        tft.color565(radar::kAircraftR, radar::kAircraftG, radar::kAircraftB);
-  }
+  radar::kColorAircraft =
+      aircraftColor565(radar::kAircraftR, radar::kAircraftG, radar::kAircraftB);
+  radar::kColorMilitary =
+      aircraftColor565(radar::kMilitaryR, radar::kMilitaryG, radar::kMilitaryB);
+  radar::kColorCommercial = aircraftColor565(
+      radar::kCommercialR, radar::kCommercialG, radar::kCommercialB);
+  radar::kColorPrivate =
+      aircraftColor565(radar::kPrivateR, radar::kPrivateG, radar::kPrivateB);
   radar::kColorTrackVector =
       tft.color565(radar::kTrackR, radar::kTrackG, radar::kTrackB);
   radar::kColorTagType =
       tft.color565(radar::kTagTypeR, radar::kTagTypeG, radar::kTagTypeB);
   radar::kColorTagAltitude =
       tft.color565(radar::kTagAltR, radar::kTagAltG, radar::kTagAltB);
+  radar::kColorTagRoute =
+      tft.color565(radar::kTagRouteR, radar::kTagRouteG, radar::kTagRouteB);
   radar::kColorRunway =
       tft.color565(radar::kRunwayR, radar::kRunwayG, radar::kRunwayB);
   radar::kColorRunwayLabel = tft.color565(radar::kRunwayLabelR, radar::kRunwayLabelG,
                                           radar::kRunwayLabelB);
+}
+
+uint16_t aircraftColor(const services::adsb::Aircraft& plane) {
+  if (!ui::radar::colorByClass()) {
+    return radar::kColorAircraft;
+  }
+  switch (plane.klass) {
+    case services::adsb::Class::Military:
+      return radar::kColorMilitary;
+    case services::adsb::Class::Commercial:
+      return radar::kColorCommercial;
+    case services::adsb::Class::Private:
+    default:
+      return radar::kColorPrivate;
+  }
 }
 
 constexpr float kKmPerDeg = 111.0f;
@@ -267,9 +297,8 @@ bool beyondRingEdgeDotFromLatLon(float lat, float lon, int* out_x, int* out_y) {
   return true;
 }
 
-void drawBeyondRingDot(int x, int y) {
-  s_draw->fillSmoothCircle(x, y, radar::kBeyondRingDotRadiusPx,
-                           radar::kColorAircraft);
+void drawBeyondRingDot(int x, int y, uint16_t color) {
+  s_draw->fillSmoothCircle(x, y, radar::kBeyondRingDotRadiusPx, color);
 }
 
 void clipPointToOuterRing(int x0, int y0, int* x1, int* y1) {
@@ -347,6 +376,27 @@ void drawHeadingTriangle(int cx, int cy, float heading_deg, uint16_t color) {
                        base_x - wing_x, base_y - wing_y, color);
 }
 
+/** Rotor glyph: hub dot with two crossed blades rotated to heading. */
+void drawHelicopter(int cx, int cy, float heading_deg, uint16_t color) {
+  constexpr float kDegToRad = 0.01745329252f;
+  const float rad = heading_deg * kDegToRad;
+  const float sin_h = sinf(rad);
+  const float cos_h = cosf(rad);
+  const float len = static_cast<float>(radar::kHeliRotorLenPx);
+
+  const int ax = static_cast<int>(lroundf(sin_h * len));
+  const int ay = static_cast<int>(lroundf(cos_h * len));
+  // Second blade is perpendicular to the first.
+  const int bx = static_cast<int>(lroundf(cos_h * len));
+  const int by = static_cast<int>(lroundf(-sin_h * len));
+
+  s_draw->drawWideLine(cx - ax, cy + ay, cx + ax, cy - ay,
+                       radar::kHeliBladeHalfWidth, color);
+  s_draw->drawWideLine(cx - bx, cy + by, cx + bx, cy - by,
+                       radar::kHeliBladeHalfWidth, color);
+  s_draw->fillSmoothCircle(cx, cy, radar::kHeliHubRadiusPx, color);
+}
+
 void drawSpeedVector(int cx, int cy, float heading_deg, float track_deg,
                      float gs_knots, uint16_t color) {
   const int len = speedLineLengthPx(gs_knots);
@@ -378,7 +428,26 @@ void applyTagStyle() {
   }
 }
 
-int measureTagBlockWidth(const services::adsb::Aircraft& plane) {
+constexpr int kTagRouteGapPx = 4;
+
+/** "JFK>LAX" for a resolved commercial route; empty otherwise. ASCII only so
+ *  it renders on the bitmap fallback fonts too. */
+bool routeTagFor(const services::adsb::Aircraft& plane, char* buf, size_t len) {
+  buf[0] = '\0';
+  if (!ui::radar::showRoute() || plane.callsign[0] == '\0') {
+    return false;
+  }
+  char origin[services::route::kCodeLen];
+  char dest[services::route::kCodeLen];
+  if (!services::route::lookup(plane.callsign, origin, dest)) {
+    return false;
+  }
+  snprintf(buf, len, "%s>%s", origin, dest);
+  return buf[0] != '\0';
+}
+
+int measureTagBlockWidth(const services::adsb::Aircraft& plane,
+                         const char* route) {
   applyTagStyle();
   int max_w = 0;
   if (plane.callsign[0] != '\0') {
@@ -388,7 +457,10 @@ int measureTagBlockWidth(const services::adsb::Aircraft& plane) {
     }
   }
   if (plane.type[0] != '\0') {
-    const int w = s_draw->textWidth(plane.type);
+    int w = s_draw->textWidth(plane.type);
+    if (route[0] != '\0') {
+      w += kTagRouteGapPx + s_draw->textWidth(route);
+    }
     if (w > max_w) {
       max_w = w;
     }
@@ -406,8 +478,11 @@ void drawAircraftTag(int x, int y, const services::adsb::Aircraft& plane) {
   initTagLabelMetrics();
   applyTagStyle();
 
+  char route[2 * services::route::kCodeLen];
+  routeTagFor(plane, route, sizeof(route));
+
   const int line_h = s_draw->fontHeight();
-  const int block_w = measureTagBlockWidth(plane);
+  const int block_w = measureTagBlockWidth(plane, route);
   const int block_h = line_h * 3;
   int ly = y - block_h / 2;
 
@@ -434,8 +509,27 @@ void drawAircraftTag(int x, int y, const services::adsb::Aircraft& plane) {
   ly += line_h;
 
   if (plane.type[0] != '\0') {
-    s_draw->setTextColor(radar::kColorTagType, radar::kColorBackground);
-    s_draw->drawString(plane.type, anchor_x, ly);
+    // Model in amber; route codes (if any) alongside it in a distinct color.
+    // Left datum grows the line rightward, right datum grows it leftward.
+    const int type_w = s_draw->textWidth(plane.type);
+    const int route_w = route[0] != '\0' ? s_draw->textWidth(route) : 0;
+    if (tag_on_right) {
+      s_draw->setTextColor(radar::kColorTagType, radar::kColorBackground);
+      s_draw->drawString(plane.type, anchor_x, ly);
+      if (route_w > 0) {
+        s_draw->setTextColor(radar::kColorTagRoute, radar::kColorBackground);
+        s_draw->drawString(route, anchor_x + type_w + kTagRouteGapPx, ly);
+      }
+    } else {
+      s_draw->setTextColor(radar::kColorTagType, radar::kColorBackground);
+      const int type_anchor = route_w > 0 ? anchor_x - route_w - kTagRouteGapPx
+                                          : anchor_x;
+      s_draw->drawString(plane.type, type_anchor, ly);
+      if (route_w > 0) {
+        s_draw->setTextColor(radar::kColorTagRoute, radar::kColorBackground);
+        s_draw->drawString(route, anchor_x, ly);
+      }
+    }
   }
   ly += line_h;
 
@@ -456,6 +550,7 @@ struct BeyondDotDrawItem {
   int x = 0;
   int y = 0;
   int dist_sq = 0;
+  uint16_t color = 0;
 };
 
 void sortDrawItemsFarFirst(AircraftDrawItem* items, size_t count) {
@@ -520,12 +615,13 @@ void drawAircraft() {
     dots[dot_count].x = dot_x;
     dots[dot_count].y = dot_y;
     dots[dot_count].dist_sq = distSqFromCenter(dot_x, dot_y);
+    dots[dot_count].color = aircraftColor(planes[i]);
     ++dot_count;
   }
 
   sortBeyondDotsFarFirst(dots, dot_count);
   for (size_t d = 0; d < dot_count; ++d) {
-    drawBeyondRingDot(dots[d].x, dots[d].y);
+    drawBeyondRingDot(dots[d].x, dots[d].y, dots[d].color);
   }
 
   sortDrawItemsFarFirst(items, draw_count);
@@ -533,9 +629,14 @@ void drawAircraft() {
     const size_t i = items[d].index;
     const int x = items[d].x;
     const int y = items[d].y;
+    const uint16_t color = aircraftColor(planes[i]);
     drawSpeedVector(x, y, planes[i].nose_deg, planes[i].track_deg,
                     planes[i].gs_knots, radar::kColorTrackVector);
-    drawHeadingTriangle(x, y, planes[i].nose_deg, radar::kColorAircraft);
+    if (planes[i].is_rotor && ui::radar::heliIcon()) {
+      drawHelicopter(x, y, planes[i].nose_deg, color);
+    } else {
+      drawHeadingTriangle(x, y, planes[i].nose_deg, color);
+    }
   }
   for (size_t d = 0; d < draw_count; ++d) {
     const size_t i = items[d].index;

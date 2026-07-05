@@ -5,6 +5,7 @@
 
 #include <ArduinoJson.h>
 
+#include <cctype>
 #include <cstring>
 
 #include "config.h"
@@ -187,6 +188,52 @@ void formatAltitudeTag(const JsonObject& plane, char* out, size_t out_len) {
   }
 }
 
+/** ICAO airline callsign: 3 letters + at least one digit (e.g. AAL3114). */
+bool isAirlineCallsign(const char* callsign) {
+  if (callsign[0] == '\0') {
+    return false;
+  }
+  for (int i = 0; i < 3; ++i) {
+    if (!isalpha(static_cast<unsigned char>(callsign[i]))) {
+      return false;
+    }
+  }
+  bool has_digit = false;
+  for (const char* p = callsign + 3; *p != '\0'; ++p) {
+    if (isdigit(static_cast<unsigned char>(*p))) {
+      has_digit = true;
+    }
+  }
+  return has_digit;
+}
+
+/**
+ * Best-effort class from what ADS-B exposes:
+ *   military — dbFlags bit 0 (authoritative);
+ *   commercial — airline-style callsign distinct from the tail number;
+ *   private — everything else (GA, tail-number callsigns, blanks).
+ */
+Class classifyAircraft(const JsonObject& plane, const char* callsign) {
+  float flags = 0.0f;
+  if (readJsonFloat(plane, "dbFlags", &flags) &&
+      (static_cast<int>(flags) & 1) != 0) {
+    return Class::Military;
+  }
+
+  char reg[9];
+  copyJsonStringTrimmed(plane, "r", reg, sizeof(reg));
+  if (isAirlineCallsign(callsign) &&
+      (reg[0] == '\0' || strcmp(callsign, reg) != 0)) {
+    return Class::Commercial;
+  }
+  return Class::Private;
+}
+
+bool isRotorcraft(const JsonObject& plane) {
+  return plane["category"].is<const char*>() &&
+         strcmp(plane["category"].as<const char*>(), "A7") == 0;
+}
+
 void fillTagFields(Aircraft* ac, const JsonObject& plane) {
   copyJsonStringTrimmed(plane, "flight", ac->callsign, sizeof(ac->callsign));
   if (ac->callsign[0] == '\0') {
@@ -195,6 +242,9 @@ void fillTagFields(Aircraft* ac, const JsonObject& plane) {
 
   copyJsonStringTrimmed(plane, "t", ac->type, sizeof(ac->type));
   formatAltitudeTag(plane, ac->alt, sizeof(ac->alt));
+
+  ac->klass = classifyAircraft(plane, ac->callsign);
+  ac->is_rotor = isRotorcraft(plane);
 }
 
 }  // namespace

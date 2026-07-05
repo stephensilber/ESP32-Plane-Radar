@@ -9,6 +9,7 @@
 #include "hardware/display.h"
 #include "services/adsb_client.h"
 #include "services/radar_location.h"
+#include "services/route_client.h"
 #include "services/wifi_setup.h"
 #include "ui/radar_display.h"
 #include "ui/radar_range.h"
@@ -49,6 +50,17 @@ void handleBootButton() {
   }
 }
 
+/** Queue routes for the commercial aircraft in the current fetch. */
+void noteVisibleRoutes() {
+  const size_t n = services::adsb::aircraftCount();
+  const services::adsb::Aircraft* planes = services::adsb::aircraftList();
+  for (size_t i = 0; i < n; ++i) {
+    if (planes[i].klass == services::adsb::Class::Commercial) {
+      services::route::note(planes[i].callsign);
+    }
+  }
+}
+
 void fetchAndDrawAircraft() {
   const float fetch_km = ui::radar::fetchRadiusKm();
   if (!services::adsb::fetchUpdate(services::location::lat(),
@@ -58,6 +70,13 @@ void fetchAndDrawAircraft() {
   }
   ui::radarDisplayRefreshAircraft();
   handleBootButton();
+
+  // After the frame is on screen: resolve one route in the gap before the next
+  // fetch, so the networked lookup never delays a draw.
+  if (ui::radar::showRoute()) {
+    noteVisibleRoutes();
+    services::route::pump();
+  }
 }
 
 }  // namespace
@@ -76,6 +95,7 @@ void setup() {
   services::location::init();
   ui::radar::rangeInit();
   services::adsb::setPollFn(wifiLoop);
+  services::route::setPollFn(wifiLoop);
 
   if (wifiSetupConnect()) {
     showRadarIfConnected();

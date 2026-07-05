@@ -15,6 +15,9 @@ constexpr char kPrefsNamespace[] = "planeradar";
 constexpr char kPrefsRangeKey[] = "rangeIdx";
 constexpr char kPrefsMilesKey[] = "useMiles";
 constexpr char kPrefsRunwaysKey[] = "showRwys";
+constexpr char kPrefsColorClassKey[] = "colorCls";
+constexpr char kPrefsHeliIconKey[] = "heliIcon";
+constexpr char kPrefsShowRouteKey[] = "showRoute";
 constexpr uint8_t kDefaultRangeIndex = 1;  // 10 km ring
 constexpr float kKmPerMile = 1.609344f;
 
@@ -22,6 +25,9 @@ Preferences s_prefs;
 uint8_t s_range_index = kDefaultRangeIndex;
 bool s_use_miles = false;
 bool s_show_runways = true;
+bool s_color_by_class = true;
+bool s_heli_icon = true;
+bool s_show_route = false;
 
 void saveRangeIndex() {
   if (!s_prefs.begin(kPrefsNamespace, false)) {
@@ -44,6 +50,14 @@ void saveShowRunways() {
     return;
   }
   s_prefs.putBool(kPrefsRunwaysKey, s_show_runways);
+  s_prefs.end();
+}
+
+void saveBoolPref(const char* key, bool value) {
+  if (!s_prefs.begin(kPrefsNamespace, false)) {
+    return;
+  }
+  s_prefs.putBool(key, value);
   s_prefs.end();
 }
 
@@ -70,6 +84,9 @@ void rangeInit() {
       (saved < kRangePresetCount) ? saved : kDefaultRangeIndex;
   s_use_miles = s_prefs.getBool(kPrefsMilesKey, false);
   s_show_runways = s_prefs.getBool(kPrefsRunwaysKey, true);
+  s_color_by_class = s_prefs.getBool(kPrefsColorClassKey, true);
+  s_heli_icon = s_prefs.getBool(kPrefsHeliIconKey, true);
+  s_show_route = s_prefs.getBool(kPrefsShowRouteKey, false);
   s_prefs.end();
 }
 
@@ -93,6 +110,12 @@ bool useMiles() { return s_use_miles; }
 
 bool showRunways() { return s_show_runways; }
 
+bool colorByClass() { return s_color_by_class; }
+
+bool heliIcon() { return s_heli_icon; }
+
+bool showRoute() { return s_show_route; }
+
 void saveMilesFromPortal(const char* checkbox_value) {
   s_use_miles = portalCheckboxChecked(checkbox_value);
   saveUseMiles();
@@ -103,6 +126,24 @@ void saveRunwaysFromPortal(const char* checkbox_value) {
   s_show_runways = portalCheckboxChecked(checkbox_value);
   saveShowRunways();
   Serial.printf("Runway overlay: %s\n", s_show_runways ? "on" : "off");
+}
+
+void saveColorByClassFromPortal(const char* checkbox_value) {
+  s_color_by_class = portalCheckboxChecked(checkbox_value);
+  saveBoolPref(kPrefsColorClassKey, s_color_by_class);
+  Serial.printf("Color by class: %s\n", s_color_by_class ? "on" : "off");
+}
+
+void saveHeliIconFromPortal(const char* checkbox_value) {
+  s_heli_icon = portalCheckboxChecked(checkbox_value);
+  saveBoolPref(kPrefsHeliIconKey, s_heli_icon);
+  Serial.printf("Helicopter icon: %s\n", s_heli_icon ? "on" : "off");
+}
+
+void saveShowRouteFromPortal(const char* checkbox_value) {
+  s_show_route = portalCheckboxChecked(checkbox_value);
+  saveBoolPref(kPrefsShowRouteKey, s_show_route);
+  Serial.printf("Flight route: %s\n", s_show_route ? "on" : "off");
 }
 
 void formatRing3Label(char* buf, size_t len, float ring3_km, bool use_miles) {
@@ -122,9 +163,15 @@ void formatCurrentRing3Label(char* buf, size_t len) {
 void unitsReset() {
   s_use_miles = false;
   s_show_runways = true;
+  s_color_by_class = true;
+  s_heli_icon = true;
+  s_show_route = false;
   if (s_prefs.begin(kPrefsNamespace, false)) {
     s_prefs.remove(kPrefsMilesKey);
     s_prefs.remove(kPrefsRunwaysKey);
+    s_prefs.remove(kPrefsColorClassKey);
+    s_prefs.remove(kPrefsHeliIconKey);
+    s_prefs.remove(kPrefsShowRouteKey);
     s_prefs.end();
   }
 }

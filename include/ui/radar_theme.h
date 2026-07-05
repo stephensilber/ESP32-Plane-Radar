@@ -72,6 +72,16 @@ constexpr uint8_t kGridB = 32;
 constexpr uint8_t kAircraftR = 255;
 constexpr uint8_t kAircraftG = 0;
 constexpr uint8_t kAircraftB = 0;
+/** Class colors (only used when "color by type" is enabled). */
+constexpr uint8_t kMilitaryR = 190;
+constexpr uint8_t kMilitaryG = 200;
+constexpr uint8_t kMilitaryB = 0;  // olive / yellow-green
+constexpr uint8_t kCommercialR = 255;
+constexpr uint8_t kCommercialG = 0;
+constexpr uint8_t kCommercialB = 0;  // red (matches default)
+constexpr uint8_t kPrivateR = 0;
+constexpr uint8_t kPrivateG = 220;
+constexpr uint8_t kPrivateB = 60;  // brighter than the grid green
 constexpr uint8_t kTrackR = 255;
 constexpr uint8_t kTrackG = 0;
 constexpr uint8_t kTrackB = 255;
@@ -81,6 +91,15 @@ constexpr uint8_t kTagTypeB = 0;
 constexpr uint8_t kTagAltR = 90;
 constexpr uint8_t kTagAltG = 200;
 constexpr uint8_t kTagAltB = 255;
+/** Origin→destination route codes, distinct from the amber type code. */
+constexpr uint8_t kTagRouteR = 120;
+constexpr uint8_t kTagRouteG = 255;
+constexpr uint8_t kTagRouteB = 160;
+
+/** Helicopter rotor glyph geometry. */
+constexpr int kHeliRotorLenPx = 8;
+constexpr int kHeliHubRadiusPx = 2;
+constexpr float kHeliBladeHalfWidth = 1.0f;
 constexpr uint8_t kRunwayR = 56;
 constexpr uint8_t kRunwayG = 150;
 constexpr uint8_t kRunwayB = 170;
@@ -94,9 +113,13 @@ extern uint16_t kColorGrid;
 extern uint16_t kColorLabel;
 extern uint16_t kColorCenter;
 extern uint16_t kColorAircraft;
+extern uint16_t kColorMilitary;
+extern uint16_t kColorCommercial;
+extern uint16_t kColorPrivate;
 extern uint16_t kColorTrackVector;
 extern uint16_t kColorTagType;
 extern uint16_t kColorTagAltitude;
+extern uint16_t kColorTagRoute;
 extern uint16_t kColorRunway;
 extern uint16_t kColorRunwayLabel;
 

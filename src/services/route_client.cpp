@@ -11,7 +11,9 @@ namespace services::route {
 
 namespace {
 
-constexpr char kApiBase[] = "https://api.adsbdb.com/v0/callsign/";
+// adsb.lol route DB: GET redirects to vrs-standing-data; more current than
+// adsbdb for reused flight numbers (e.g. AAL409 -> DFW-LIR, not JFK-MIA).
+constexpr char kApiBase[] = "https://api.adsb.lol/api/0/route/";
 constexpr size_t kMaxRoutes = 24;
 constexpr int kConnectTimeoutMs = 3000;
 constexpr unsigned long kRequestTimeoutMs = 6000;
@@ -53,6 +55,26 @@ Entry* firstPending() {
   return nullptr;
 }
 
+void copyCode(char* out, const char* start, size_t n) {
+  if (n >= kCodeLen) {
+    n = kCodeLen - 1;
+  }
+  memcpy(out, start, n);
+  out[n] = '\0';
+}
+
+/** Split "DFW-LIR" (or multi-leg "A-B-C") into first/last IATA codes. */
+bool parseAirportCodes(const char* codes, char* origin, char* dest) {
+  const char* first_dash = strchr(codes, '-');
+  const char* last_dash = strrchr(codes, '-');
+  if (first_dash == nullptr || first_dash == codes || last_dash[1] == '\0') {
+    return false;
+  }
+  copyCode(origin, codes, static_cast<size_t>(first_dash - codes));
+  copyCode(dest, last_dash + 1, strlen(last_dash + 1));
+  return origin[0] != '\0' && dest[0] != '\0';
+}
+
 bool fetchRoute(const Entry& entry, char* origin, char* dest) {
   String url = kApiBase;
   url += entry.callsign;
@@ -63,6 +85,8 @@ bool fetchRoute(const Entry& entry, char* origin, char* dest) {
   HTTPClient http;
   http.setConnectTimeout(kConnectTimeoutMs);
   http.setTimeout(kRequestTimeoutMs);
+  // Route lookup 302-redirects to the vrs-standing-data host.
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   if (!http.begin(client, url)) {
     return false;
   }
@@ -70,7 +94,7 @@ bool fetchRoute(const Entry& entry, char* origin, char* dest) {
   pollNetwork();
   const int code = http.GET();
   if (code != HTTP_CODE_OK) {
-    // 404 = adsbdb has no route for this callsign; treat as a settled "no route".
+    // 404 = no route on file for this callsign; settled, don't retry.
     http.end();
     return code == HTTP_CODE_NOT_FOUND;
   }
@@ -81,24 +105,14 @@ bool fetchRoute(const Entry& entry, char* origin, char* dest) {
 
   JsonDocument doc;
   if (deserializeJson(doc, payload)) {
-    return false;
+    return true;  // 200 but not the expected JSON — settled, no route.
   }
 
-  JsonObject fr = doc["response"]["flightroute"].as<JsonObject>();
-  if (fr.isNull()) {
-    return true;  // "unknown callsign" — settled, no route.
+  const char* codes = doc["_airport_codes_iata"].as<const char*>();
+  if (codes == nullptr) {
+    return true;  // settled, no route.
   }
-
-  const char* o = fr["origin"]["iata_code"].as<const char*>();
-  const char* d = fr["destination"]["iata_code"].as<const char*>();
-  if (o != nullptr) {
-    strncpy(origin, o, kCodeLen - 1);
-    origin[kCodeLen - 1] = '\0';
-  }
-  if (d != nullptr) {
-    strncpy(dest, d, kCodeLen - 1);
-    dest[kCodeLen - 1] = '\0';
-  }
+  parseAirportCodes(codes, origin, dest);
   return true;
 }
 

@@ -46,7 +46,7 @@ The same portal runs on the setup AP and on the device’s LAN IP while connecte
 | **Show airport runways** | Major-airport runway overlay on the radar (off to hide) |
 | **Color aircraft by type** | Tint symbols by class — military (olive), commercial (red), private/GA (green) — instead of a single red (on by default) |
 | **Distinct helicopter icon** | Draw rotorcraft (ADS-B category A7) as a rotor glyph instead of a triangle (on by default) |
-| **Show flight route** | Fetch origin→destination airport codes for commercial flights from [adsbdb.com](https://www.adsbdb.com/) and show them beside the model (off by default) |
+| **Show flight route** | Fetch origin→destination airport codes for commercial flights from [adsb.lol](https://api.adsb.lol/) and show them beside the model (off by default) |
 
 After a reset, the device reboots and shows the setup screen immediately (no “Connecting” loop on stale credentials).
 

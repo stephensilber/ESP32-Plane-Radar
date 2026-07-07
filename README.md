@@ -48,7 +48,6 @@ The same portal runs on the setup AP and on the device’s LAN IP while connecte
 | **Distinct helicopter icon** | Draw rotorcraft (ADS-B category A7) as a rotor glyph instead of a triangle (on by default) |
 | **Show flight route** | Fetch origin→destination airport codes for commercial flights from [adsb.lol](https://api.adsb.lol/) and show them beside the model (off by default) |
 | **Smooth motion** | Dead-reckon targets between polls so movement is continuous instead of stepping every ~3 s (on by default) |
-| **Declutter labels** | Drop overlapping tag lines (altitude first, then type/route) in dense stacks (on by default) |
 | **Radar rotation** | Drag the compass so N points to real north relative to the top of the screen; rotates the grid, cardinal labels, and aircraft while text stays upright (0° by default) |
 
 After a reset, the device reboots and shows the setup screen immediately (no “Connecting” loop on stale credentials).

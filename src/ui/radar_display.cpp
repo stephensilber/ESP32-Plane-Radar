@@ -479,27 +479,11 @@ bool routeTagFor(const services::adsb::Aircraft& plane, char* buf, size_t len) {
   return buf[0] != '\0';
 }
 
-// Tag detail collapses under crowding: 3 = callsign + type/route + altitude,
-// 2 drops altitude, 1 = callsign only, 0 = suppressed.
-struct TagRect {
-  int left = 0;
-  int top = 0;
-  int w = 0;
-  int h = 0;
-};
-
 struct TagLayout {
   int anchor_x = 0;
   int ly = 0;
   bool tag_on_right = false;
-  TagRect rect;
 };
-
-bool tagRectsOverlap(const TagRect& a, const TagRect& b) {
-  const int pad = radar::kTagDeclutterPadPx;
-  return !(a.left + a.w + pad <= b.left || b.left + b.w + pad <= a.left ||
-           a.top + a.h + pad <= b.top || b.top + b.h + pad <= a.top);
-}
 
 int measureTagBlockWidth(const services::adsb::Aircraft& plane,
                          const char* route, int lines) {
@@ -539,10 +523,6 @@ void computeTagLayout(int x, int y, int block_w, int block_h, TagLayout* out) {
   out->anchor_x = anchor_x;
   out->ly = ly;
   out->tag_on_right = tag_on_right;
-  out->rect.left = tag_on_right ? anchor_x : anchor_x - block_w;
-  out->rect.top = ly;
-  out->rect.w = block_w;
-  out->rect.h = block_h;
 }
 
 void drawTagLines(const services::adsb::Aircraft& plane, const char* route,
@@ -698,53 +678,20 @@ void drawAircraft() {
     }
   }
 
-  // Tags placed near-first (items are far-first): closer targets keep full
-  // detail; a tag that would overlap an already-placed one sheds lines
-  // (altitude, then type/route) and is suppressed only if even the callsign
-  // can't fit clear. This keeps dense stacks legible.
   initTagLabelMetrics();
   applyTagStyle();
   const int line_h = s_draw->fontHeight();
-  const bool declutter = ui::radar::declutterLabels();
-  TagRect placed[services::adsb::kMaxAircraft];
-  size_t placed_count = 0;
-
-  for (int d = static_cast<int>(draw_count) - 1; d >= 0; --d) {
+  for (size_t d = 0; d < draw_count; ++d) {
     const size_t i = items[d].index;
     char route[2 * services::route::kCodeLen];
     routeTagFor(planes[i], route, sizeof(route));
-
-    int chosen_lines = 0;
+    const int block_w = measureTagBlockWidth(planes[i], route, 3);
+    if (block_w <= 0) {
+      continue;
+    }
     TagLayout layout;
-    for (int lines = 3; lines >= 1; --lines) {
-      const int block_w = measureTagBlockWidth(planes[i], route, lines);
-      if (block_w <= 0) {
-        continue;
-      }
-      TagLayout candidate;
-      computeTagLayout(items[d].x, items[d].y, block_w, line_h * lines,
-                       &candidate);
-      bool clash = false;
-      if (declutter) {
-        for (size_t p = 0; p < placed_count; ++p) {
-          if (tagRectsOverlap(candidate.rect, placed[p])) {
-            clash = true;
-            break;
-          }
-        }
-      }
-      if (!clash) {
-        chosen_lines = lines;
-        layout = candidate;
-        break;
-      }
-    }
-
-    if (chosen_lines == 0) {
-      continue;  // fully crowded out — symbol still shows.
-    }
-    drawTagLines(planes[i], route, chosen_lines, layout);
-    placed[placed_count++] = layout.rect;
+    computeTagLayout(items[d].x, items[d].y, block_w, line_h * 3, &layout);
+    drawTagLines(planes[i], route, 3, layout);
   }
 }
 

@@ -20,7 +20,6 @@ constexpr char kPrefsColorClassKey[] = "colorCls";
 constexpr char kPrefsHeliIconKey[] = "heliIcon";
 constexpr char kPrefsShowRouteKey[] = "showRoute";
 constexpr char kPrefsSmoothKey[] = "smoothMot";
-constexpr char kPrefsDeclutterKey[] = "declutter";
 constexpr char kPrefsHeadingKey[] = "hdgOffset";
 constexpr uint8_t kDefaultRangeIndex = 1;  // 10 km ring
 constexpr float kKmPerMile = 1.609344f;
@@ -33,7 +32,6 @@ bool s_color_by_class = true;
 bool s_heli_icon = true;
 bool s_show_route = false;
 bool s_smooth_motion = true;
-bool s_declutter_labels = true;
 int16_t s_heading_offset = 0;
 
 void saveRangeIndex() {
@@ -95,7 +93,6 @@ void rangeInit() {
   s_heli_icon = s_prefs.getBool(kPrefsHeliIconKey, true);
   s_show_route = s_prefs.getBool(kPrefsShowRouteKey, false);
   s_smooth_motion = s_prefs.getBool(kPrefsSmoothKey, true);
-  s_declutter_labels = s_prefs.getBool(kPrefsDeclutterKey, true);
   s_heading_offset = s_prefs.getShort(kPrefsHeadingKey, 0);
   s_prefs.end();
 }
@@ -127,8 +124,6 @@ bool heliIcon() { return s_heli_icon; }
 bool showRoute() { return s_show_route; }
 
 bool smoothMotion() { return s_smooth_motion; }
-
-bool declutterLabels() { return s_declutter_labels; }
 
 float headingOffsetDeg() { return static_cast<float>(s_heading_offset); }
 
@@ -168,12 +163,6 @@ void saveSmoothMotionFromPortal(const char* checkbox_value) {
   Serial.printf("Smooth motion: %s\n", s_smooth_motion ? "on" : "off");
 }
 
-void saveDeclutterFromPortal(const char* checkbox_value) {
-  s_declutter_labels = portalCheckboxChecked(checkbox_value);
-  saveBoolPref(kPrefsDeclutterKey, s_declutter_labels);
-  Serial.printf("Declutter labels: %s\n", s_declutter_labels ? "on" : "off");
-}
-
 void saveHeadingFromPortal(const char* value) {
   int deg = (value != nullptr) ? atoi(value) : 0;
   deg = ((deg % 360) + 360) % 360;
@@ -206,7 +195,6 @@ void unitsReset() {
   s_heli_icon = true;
   s_show_route = false;
   s_smooth_motion = true;
-  s_declutter_labels = true;
   s_heading_offset = 0;
   if (s_prefs.begin(kPrefsNamespace, false)) {
     s_prefs.remove(kPrefsMilesKey);
@@ -215,7 +203,6 @@ void unitsReset() {
     s_prefs.remove(kPrefsHeliIconKey);
     s_prefs.remove(kPrefsShowRouteKey);
     s_prefs.remove(kPrefsSmoothKey);
-    s_prefs.remove(kPrefsDeclutterKey);
     s_prefs.remove(kPrefsHeadingKey);
     s_prefs.end();
   }

@@ -16,8 +16,10 @@ namespace {
 // adsbdb for reused flight numbers (e.g. AAL409 -> DFW-LIR, not JFK-MIA).
 constexpr char kApiBase[] = "https://api.adsb.lol/api/0/route/";
 constexpr size_t kMaxRoutes = 24;
-constexpr int kConnectTimeoutMs = 3000;
-constexpr unsigned long kRequestTimeoutMs = 6000;
+// Kept short: this GET blocks the render loop (redirect + fresh TLS), so a slow
+// route server must fail fast rather than freeze aircraft motion for seconds.
+constexpr int kConnectTimeoutMs = 1500;
+constexpr unsigned long kRequestTimeoutMs = 2500;
 
 enum class State : uint8_t { Empty, Pending, Resolved, None };
 

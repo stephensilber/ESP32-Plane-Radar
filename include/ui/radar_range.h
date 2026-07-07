@@ -49,7 +49,6 @@ bool colorByClass();
 bool heliIcon();
 bool showRoute();
 bool smoothMotion();
-bool declutterLabels();
 /** Radar rotation (deg, 0-359): geographic bearing b is drawn at screen b+offset. */
 float headingOffsetDeg();
 /** WiFi portal checkbox: "T" = miles, otherwise km. */
@@ -59,7 +58,6 @@ void saveColorByClassFromPortal(const char* checkbox_value);
 void saveHeliIconFromPortal(const char* checkbox_value);
 void saveShowRouteFromPortal(const char* checkbox_value);
 void saveSmoothMotionFromPortal(const char* checkbox_value);
-void saveDeclutterFromPortal(const char* checkbox_value);
 /** Portal heading field (degrees as text); normalized to 0-359. */
 void saveHeadingFromPortal(const char* value);
 void formatRing3Label(char* buf, size_t len, float ring3_km, bool use_miles);

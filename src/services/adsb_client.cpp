@@ -24,31 +24,10 @@ size_t s_aircraft_count = 0;
 unsigned long s_last_update_ms = 0;
 PollFn s_poll_fn = nullptr;
 
-// Persistent so the TLS connection is kept alive between polls (the adsb feed
-// sends Content-Length + Connection: keep-alive), skipping the ~hundreds-of-ms
-// handshake on most fetches.
-WiFiClientSecure s_client;
-HTTPClient s_http;
-bool s_http_inited = false;
-
 void pollNetwork() {
   if (s_poll_fn != nullptr) {
     s_poll_fn();
   }
-}
-
-void ensureHttpInit() {
-  if (s_http_inited) {
-    return;
-  }
-  s_client.setInsecure();
-  s_http.setReuse(true);
-  s_http_inited = true;
-}
-
-void closeConnection() {
-  s_http.end();
-  s_client.stop();
 }
 
 int performGetWithPoll(HTTPClient& http) {
@@ -287,43 +266,30 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
   url += "/dist/";
   url += String(dist_nm, 1);
 
-  ensureHttpInit();
+  WiFiClientSecure client;
+  client.setInsecure();
 
-  if (!s_http.begin(s_client, url)) {
+  HTTPClient http;
+  if (!http.begin(client, url)) {
     Serial.println("adsb: http.begin failed");
-    closeConnection();
     return false;
   }
-  s_http.setTimeout(kRequestTimeoutMs);
 
-  int code = performGetWithPoll(s_http);
-  if (code != HTTP_CODE_OK) {
-    // A kept-alive socket may have gone stale; drop it and try once more fresh
-    // so a reuse failure never costs a whole update cycle.
-    closeConnection();
-    if (s_http.begin(s_client, url)) {
-      s_http.setTimeout(kRequestTimeoutMs);
-      code = performGetWithPoll(s_http);
-    }
-  }
+  http.setTimeout(kRequestTimeoutMs);
+  const int code = performGetWithPoll(http);
   if (code != HTTP_CODE_OK) {
     Serial.printf("adsb: HTTP %d\n", code);
-    closeConnection();
+    http.end();
     return false;
   }
 
-  const int content_len = s_http.getSize();
   String payload;
-  if (!readResponseBodyWithPoll(s_http, payload)) {
+  if (!readResponseBodyWithPoll(http, payload)) {
     Serial.println("adsb: empty response");
-    closeConnection();
+    http.end();
     return false;
   }
-  if (content_len > 0) {
-    s_http.end();  // Content-Length response: keep the TLS connection open.
-  } else {
-    closeConnection();  // Chunked/unknown: our poll-read relies on close.
-  }
+  http.end();
 
   JsonDocument doc;
   const DeserializationError err = deserializeJson(doc, payload);

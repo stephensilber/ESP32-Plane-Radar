@@ -338,6 +338,11 @@ void ensureWifiManager() {
   s_wm.setHostname(config::kPortalHostname);
   s_wm.setAPCallback(onConfigPortalApStarted);
   s_wm.setCustomHeadElement(kPortalCss);
+  // Settings on their own "Setup" page (/param), not crammed under the Wi-Fi
+  // scan list — keeps each page small enough to build on the constrained heap.
+  static const char* kPortalMenu[] = {"wifi", "param", "info", "exit", "sep",
+                                      "update"};
+  s_wm.setMenu(kPortalMenu, 6);
   attachPortalParams(s_wm);
   s_wm_configured = true;
 }

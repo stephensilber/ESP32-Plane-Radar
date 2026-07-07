@@ -18,6 +18,8 @@ constexpr char kPrefsRunwaysKey[] = "showRwys";
 constexpr char kPrefsColorClassKey[] = "colorCls";
 constexpr char kPrefsHeliIconKey[] = "heliIcon";
 constexpr char kPrefsShowRouteKey[] = "showRoute";
+constexpr char kPrefsSmoothKey[] = "smoothMot";
+constexpr char kPrefsDeclutterKey[] = "declutter";
 constexpr uint8_t kDefaultRangeIndex = 1;  // 10 km ring
 constexpr float kKmPerMile = 1.609344f;
 
@@ -28,6 +30,8 @@ bool s_show_runways = true;
 bool s_color_by_class = true;
 bool s_heli_icon = true;
 bool s_show_route = false;
+bool s_smooth_motion = true;
+bool s_declutter_labels = true;
 
 void saveRangeIndex() {
   if (!s_prefs.begin(kPrefsNamespace, false)) {
@@ -87,6 +91,8 @@ void rangeInit() {
   s_color_by_class = s_prefs.getBool(kPrefsColorClassKey, true);
   s_heli_icon = s_prefs.getBool(kPrefsHeliIconKey, true);
   s_show_route = s_prefs.getBool(kPrefsShowRouteKey, false);
+  s_smooth_motion = s_prefs.getBool(kPrefsSmoothKey, true);
+  s_declutter_labels = s_prefs.getBool(kPrefsDeclutterKey, true);
   s_prefs.end();
 }
 
@@ -115,6 +121,10 @@ bool colorByClass() { return s_color_by_class; }
 bool heliIcon() { return s_heli_icon; }
 
 bool showRoute() { return s_show_route; }
+
+bool smoothMotion() { return s_smooth_motion; }
+
+bool declutterLabels() { return s_declutter_labels; }
 
 void saveMilesFromPortal(const char* checkbox_value) {
   s_use_miles = portalCheckboxChecked(checkbox_value);
@@ -146,6 +156,18 @@ void saveShowRouteFromPortal(const char* checkbox_value) {
   Serial.printf("Flight route: %s\n", s_show_route ? "on" : "off");
 }
 
+void saveSmoothMotionFromPortal(const char* checkbox_value) {
+  s_smooth_motion = portalCheckboxChecked(checkbox_value);
+  saveBoolPref(kPrefsSmoothKey, s_smooth_motion);
+  Serial.printf("Smooth motion: %s\n", s_smooth_motion ? "on" : "off");
+}
+
+void saveDeclutterFromPortal(const char* checkbox_value) {
+  s_declutter_labels = portalCheckboxChecked(checkbox_value);
+  saveBoolPref(kPrefsDeclutterKey, s_declutter_labels);
+  Serial.printf("Declutter labels: %s\n", s_declutter_labels ? "on" : "off");
+}
+
 void formatRing3Label(char* buf, size_t len, float ring3_km, bool use_miles) {
   if (use_miles) {
     const int mi = static_cast<int>(lroundf(ring3_km / kKmPerMile));
@@ -166,12 +188,16 @@ void unitsReset() {
   s_color_by_class = true;
   s_heli_icon = true;
   s_show_route = false;
+  s_smooth_motion = true;
+  s_declutter_labels = true;
   if (s_prefs.begin(kPrefsNamespace, false)) {
     s_prefs.remove(kPrefsMilesKey);
     s_prefs.remove(kPrefsRunwaysKey);
     s_prefs.remove(kPrefsColorClassKey);
     s_prefs.remove(kPrefsHeliIconKey);
     s_prefs.remove(kPrefsShowRouteKey);
+    s_prefs.remove(kPrefsSmoothKey);
+    s_prefs.remove(kPrefsDeclutterKey);
     s_prefs.end();
   }
 }

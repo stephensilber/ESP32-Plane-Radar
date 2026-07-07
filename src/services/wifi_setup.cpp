@@ -71,6 +71,35 @@ constexpr int kCoordParamLen = 20;
 constexpr char kCoordInputAttrs[] =
     " type=\"number\" step=\"0.000001\"";
 
+// ATC / radar-scope theme injected into every portal page's <head>.
+// Self-contained (no external fonts/assets) so it works on the captive AP.
+constexpr char kPortalCss[] = R"CSS(<style>
+:root{--fg:#4dffa6;--dim:#1f8f5c;--acc:#00e676;--amber:#ffcf40}
+*{box-sizing:border-box}
+body{margin:0 auto;max-width:560px;padding:20px 16px;color:var(--fg);
+font-family:ui-monospace,'Courier New',monospace;letter-spacing:.4px;
+background:radial-gradient(125% 85% at 50% -12%,#0a3d24 0%,#02100a 55%,#010a06 100%) fixed}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:9;
+background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0 1px,transparent 1px 3px)}
+h1,h2,h3{color:var(--acc);text-transform:uppercase;letter-spacing:2px;
+text-shadow:0 0 8px rgba(0,230,118,.55)}
+.wrap{max-width:560px;margin:0 auto}
+button,input[type=submit],input[type=button]{width:100%;color:var(--fg);cursor:pointer;
+background:linear-gradient(180deg,#064a2a,#02160d);border:1px solid var(--acc);border-radius:6px;
+padding:11px;margin-top:6px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;
+text-shadow:0 0 5px rgba(0,230,118,.6);transition:box-shadow .15s}
+button:hover,input[type=submit]:hover{box-shadow:0 0 14px rgba(0,230,118,.65)}
+input[type=text],input[type=password],input[type=number],select,textarea{width:100%;
+color:var(--fg);background:#02160d;border:1px solid var(--dim);border-radius:4px;padding:9px;
+font-family:inherit;box-shadow:inset 0 0 8px rgba(0,230,118,.12)}
+input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 10px rgba(0,230,118,.5)}
+input[type=checkbox]{accent-color:var(--acc);transform:scale(1.25);margin:8px 8px 8px 0}
+a{color:var(--acc);text-decoration:none}
+a:hover{text-shadow:0 0 8px rgba(0,230,118,.7)}
+.q{filter:hue-rotate(80deg) saturate(1.8)}
+hr{border:0;border-top:1px dashed var(--dim)}
+</style>)CSS";
+
 WiFiManagerParameter s_param_lat("radar_lat", "Latitude (deg)", "0",
                                 kCoordParamLen, kCoordInputAttrs);
 WiFiManagerParameter s_param_lon("radar_lon", "Longitude (deg)", "0",
@@ -101,6 +130,17 @@ WiFiManagerParameter s_param_show_route("show_route",
                                         "T", 2, s_show_route_checkbox_attrs,
                                         WFM_LABEL_AFTER);
 
+char s_smooth_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_smooth("smooth_motion",
+                                    "Smooth motion (dead-reckoning)", "T", 2,
+                                    s_smooth_checkbox_attrs, WFM_LABEL_AFTER);
+
+char s_declutter_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_declutter("declutter",
+                                       "Declutter overlapping labels", "T", 2,
+                                       s_declutter_checkbox_attrs,
+                                       WFM_LABEL_AFTER);
+
 void refreshPortalParamDefaults() {
   char lat_buf[kCoordParamLen + 1];
   char lon_buf[kCoordParamLen + 1];
@@ -123,6 +163,12 @@ void refreshPortalParamDefaults() {
   snprintf(s_show_route_checkbox_attrs, sizeof(s_show_route_checkbox_attrs),
            "type=\"checkbox\"%s", ui::radar::showRoute() ? " checked" : "");
   s_param_show_route.setValue("T", 2);
+  snprintf(s_smooth_checkbox_attrs, sizeof(s_smooth_checkbox_attrs),
+           "type=\"checkbox\"%s", ui::radar::smoothMotion() ? " checked" : "");
+  s_param_smooth.setValue("T", 2);
+  snprintf(s_declutter_checkbox_attrs, sizeof(s_declutter_checkbox_attrs),
+           "type=\"checkbox\"%s", ui::radar::declutterLabels() ? " checked" : "");
+  s_param_declutter.setValue("T", 2);
 }
 
 void onPortalParamsSaved() {
@@ -135,6 +181,8 @@ void onPortalParamsSaved() {
   ui::radar::saveColorByClassFromPortal(s_param_color_class.getValue());
   ui::radar::saveHeliIconFromPortal(s_param_heli_icon.getValue());
   ui::radar::saveShowRouteFromPortal(s_param_show_route.getValue());
+  ui::radar::saveSmoothMotionFromPortal(s_param_smooth.getValue());
+  ui::radar::saveDeclutterFromPortal(s_param_declutter.getValue());
 }
 
 void attachPortalParams(WiFiManager& wm) {
@@ -146,6 +194,8 @@ void attachPortalParams(WiFiManager& wm) {
   wm.addParameter(&s_param_color_class);
   wm.addParameter(&s_param_heli_icon);
   wm.addParameter(&s_param_show_route);
+  wm.addParameter(&s_param_smooth);
+  wm.addParameter(&s_param_declutter);
   wm.setSaveParamsCallback(onPortalParamsSaved);
 }
 
@@ -256,6 +306,7 @@ void ensureWifiManager() {
                            IPAddress(255, 255, 255, 0));
   s_wm.setHostname(config::kPortalHostname);
   s_wm.setAPCallback(onConfigPortalApStarted);
+  s_wm.setCustomHeadElement(kPortalCss);
   attachPortalParams(s_wm);
   s_wm_configured = true;
 }

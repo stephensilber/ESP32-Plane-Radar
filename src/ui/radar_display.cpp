@@ -627,7 +627,8 @@ void drawAircraft() {
   size_t draw_count = 0;
   size_t dot_count = 0;
 
-  const float age_s = services::adsb::secondsSinceUpdate();
+  const float age_s =
+      ui::radar::smoothMotion() ? services::adsb::secondsSinceUpdate() : 0.0f;
 
   for (size_t i = 0; i < n; ++i) {
     float lat = 0.0f;
@@ -690,6 +691,7 @@ void drawAircraft() {
   initTagLabelMetrics();
   applyTagStyle();
   const int line_h = s_draw->fontHeight();
+  const bool declutter = ui::radar::declutterLabels();
   TagRect placed[services::adsb::kMaxAircraft];
   size_t placed_count = 0;
 
@@ -709,10 +711,12 @@ void drawAircraft() {
       computeTagLayout(items[d].x, items[d].y, block_w, line_h * lines,
                        &candidate);
       bool clash = false;
-      for (size_t p = 0; p < placed_count; ++p) {
-        if (tagRectsOverlap(candidate.rect, placed[p])) {
-          clash = true;
-          break;
+      if (declutter) {
+        for (size_t p = 0; p < placed_count; ++p) {
+          if (tagRectsOverlap(candidate.rect, placed[p])) {
+            clash = true;
+            break;
+          }
         }
       }
       if (!clash) {

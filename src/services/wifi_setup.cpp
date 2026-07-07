@@ -75,16 +75,19 @@ constexpr char kCoordInputAttrs[] =
 // Self-contained (no external fonts/assets) so it works on the captive AP.
 constexpr char kPortalCss[] = R"CSS(<style>
 :root{--fg:#4dffa6;--dim:#1f8f5c;--acc:#00e676;--amber:#ffcf40}
-body{margin:0 auto;max-width:520px;padding:16px;color:var(--fg);background:#02100a;font-family:ui-monospace,monospace}
-h1,h2,h3{color:var(--acc);text-transform:uppercase;letter-spacing:2px}
-button,input[type=submit]{width:100%;color:var(--fg);background:#064a2a;border:1px solid var(--acc);border-radius:6px;padding:11px;margin-top:6px;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+body{margin:0 auto;max-width:520px;padding:16px;color:var(--fg);font-family:ui-monospace,monospace;background:radial-gradient(120% 80% at 50% -10%,#0a3320 0%,#02100a 62%)}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:9;background:repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 1px,transparent 1px 3px)}
+h1,h2,h3{color:var(--acc);text-transform:uppercase;letter-spacing:2px;text-shadow:0 0 7px rgba(0,230,118,.5)}
+button,input[type=submit]{width:100%;color:var(--fg);background:#064a2a;border:1px solid var(--acc);border-radius:6px;padding:11px;margin-top:6px;font-weight:700;text-transform:uppercase;letter-spacing:1px;text-shadow:0 0 5px rgba(0,230,118,.5);transition:box-shadow .15s}
+button:hover,input[type=submit]:hover{box-shadow:0 0 12px rgba(0,230,118,.55)}
 input[type=text],input[type=password],input[type=number],select{width:100%;color:var(--fg);background:#02160d;border:1px solid var(--dim);border-radius:4px;padding:9px}
+input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 9px rgba(0,230,118,.45)}
 input[type=checkbox]{accent-color:var(--acc);transform:scale(1.25);margin:8px 8px 8px 0}
 a{color:var(--acc)}
 .bk{display:inline-block;margin:0 0 14px;padding:8px 14px;border:1px solid var(--dim);border-radius:6px;text-transform:uppercase;letter-spacing:1px;font-weight:700}
 .cmp{margin:16px auto;text-align:center}
 .cmp-up{color:var(--amber);font-weight:700;font-size:12px;margin-bottom:6px}
-.cmp-dial{position:relative;width:170px;height:170px;margin:0 auto;border-radius:50%;border:2px solid var(--acc);background:#031f12;touch-action:none;cursor:grab;user-select:none}
+.cmp-dial{position:relative;width:170px;height:170px;margin:0 auto;border-radius:50%;border:2px solid var(--acc);background:radial-gradient(circle,#031f12,#010a06);box-shadow:0 0 14px rgba(0,230,118,.3),inset 0 0 16px rgba(0,230,118,.1);touch-action:none;cursor:grab;user-select:none}
 .cmp-tick{position:absolute;top:-9px;left:50%;margin-left:-6px;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid var(--amber)}
 .cmp-rose{position:absolute;inset:0}
 .cmp-rose b{position:absolute;font-weight:700;font-size:15px}

@@ -485,21 +485,30 @@ struct TagLayout {
   bool tag_on_right = false;
 };
 
+/** Number of non-empty tag lines (callsign / type+route / altitude). */
+int countTagLines(const services::adsb::Aircraft& plane) {
+  int n = 0;
+  if (plane.callsign[0] != '\0') ++n;
+  if (plane.type[0] != '\0') ++n;
+  if (plane.alt[0] != '\0') ++n;
+  return n;
+}
+
 int measureTagBlockWidth(const services::adsb::Aircraft& plane,
-                         const char* route, int lines) {
+                         const char* route) {
   applyTagStyle();
   int max_w = 0;
-  if (lines >= 1 && plane.callsign[0] != '\0') {
+  if (plane.callsign[0] != '\0') {
     max_w = std::max(max_w, static_cast<int>(s_draw->textWidth(plane.callsign)));
   }
-  if (lines >= 2 && plane.type[0] != '\0') {
+  if (plane.type[0] != '\0') {
     int w = s_draw->textWidth(plane.type);
     if (route[0] != '\0') {
       w += kTagRouteGapPx + s_draw->textWidth(route);
     }
     max_w = std::max(max_w, w);
   }
-  if (lines >= 3 && plane.alt[0] != '\0') {
+  if (plane.alt[0] != '\0') {
     max_w = std::max(max_w, static_cast<int>(s_draw->textWidth(plane.alt)));
   }
   return max_w;
@@ -526,7 +535,7 @@ void computeTagLayout(int x, int y, int block_w, int block_h, TagLayout* out) {
 }
 
 void drawTagLines(const services::adsb::Aircraft& plane, const char* route,
-                  int lines, const TagLayout& layout) {
+                  const TagLayout& layout) {
   applyTagStyle();
   s_draw->setTextDatum(layout.tag_on_right ? textdatum_t::top_left
                                            : textdatum_t::top_right);
@@ -534,13 +543,15 @@ void drawTagLines(const services::adsb::Aircraft& plane, const char* route,
   const int anchor_x = layout.anchor_x;
   int ly = layout.ly;
 
-  if (lines >= 1 && plane.callsign[0] != '\0') {
+  // Only non-empty lines advance ly, so a missing field collapses the block
+  // instead of leaving a gap.
+  if (plane.callsign[0] != '\0') {
     s_draw->setTextColor(radar::kColorLabel, radar::kColorBackground);
     s_draw->drawString(plane.callsign, anchor_x, ly);
+    ly += line_h;
   }
-  ly += line_h;
 
-  if (lines >= 2 && plane.type[0] != '\0') {
+  if (plane.type[0] != '\0') {
     // Model in amber; route codes (if any) alongside it in a distinct color.
     // Left datum grows the line rightward, right datum grows it leftward.
     const int type_w = s_draw->textWidth(plane.type);
@@ -562,10 +573,10 @@ void drawTagLines(const services::adsb::Aircraft& plane, const char* route,
         s_draw->drawString(route, anchor_x, ly);
       }
     }
+    ly += line_h;
   }
-  ly += line_h;
 
-  if (lines >= 3 && plane.alt[0] != '\0') {
+  if (plane.alt[0] != '\0') {
     s_draw->setTextColor(radar::kColorTagAltitude, radar::kColorBackground);
     s_draw->drawString(plane.alt, anchor_x, ly);
   }
@@ -685,13 +696,14 @@ void drawAircraft() {
     const size_t i = items[d].index;
     char route[2 * services::route::kCodeLen];
     routeTagFor(planes[i], route, sizeof(route));
-    const int block_w = measureTagBlockWidth(planes[i], route, 3);
-    if (block_w <= 0) {
+    const int nlines = countTagLines(planes[i]);
+    const int block_w = measureTagBlockWidth(planes[i], route);
+    if (nlines == 0 || block_w <= 0) {
       continue;
     }
     TagLayout layout;
-    computeTagLayout(items[d].x, items[d].y, block_w, line_h * 3, &layout);
-    drawTagLines(planes[i], route, 3, layout);
+    computeTagLayout(items[d].x, items[d].y, block_w, line_h * nlines, &layout);
+    drawTagLines(planes[i], route, layout);
   }
 }
 

@@ -81,18 +81,21 @@ button,input[type=submit]{width:100%;color:var(--fg);background:#064a2a;border:1
 input[type=text],input[type=password],input[type=number],select{width:100%;color:var(--fg);background:#02160d;border:1px solid var(--dim);border-radius:4px;padding:9px}
 input[type=checkbox]{accent-color:var(--acc);transform:scale(1.25);margin:8px 8px 8px 0}
 a{color:var(--acc)}
+.bk{display:inline-block;margin:0 0 14px;padding:8px 14px;border:1px solid var(--dim);border-radius:6px;text-transform:uppercase;letter-spacing:1px;font-weight:700}
 .cmp{margin:16px auto;text-align:center}
 .cmp-up{color:var(--amber);font-weight:700;font-size:12px;margin-bottom:6px}
 .cmp-dial{position:relative;width:170px;height:170px;margin:0 auto;border-radius:50%;border:2px solid var(--acc);background:#031f12;touch-action:none;cursor:grab;user-select:none}
 .cmp-tick{position:absolute;top:-9px;left:50%;margin-left:-6px;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid var(--amber)}
 .cmp-rose{position:absolute;inset:0}
 .cmp-rose b{position:absolute;font-weight:700;font-size:15px}
-.cmp-rose .n{top:8px;left:50%;margin-left:-5px;color:var(--amber)}
-.cmp-rose .s{bottom:8px;left:50%;margin-left:-5px}
+.cmp-rose .n{top:16px;left:50%;margin-left:-5px;color:var(--amber)}
+.cmp-rose .s{bottom:16px;left:50%;margin-left:-5px}
 .cmp-rose .e{right:10px;top:50%;margin-top:-8px}
 .cmp-rose .w{left:10px;top:50%;margin-top:-8px}
 .cmp-val{margin-top:8px;font-size:13px}
 </style>)CSS";
+
+WiFiManagerParameter s_param_back("<a href=\"/\" class=\"bk\">&#8592; Back</a>");
 
 WiFiManagerParameter s_param_lat("radar_lat", "Latitude (deg)", "0",
                                 kCoordParamLen, kCoordInputAttrs);
@@ -141,10 +144,11 @@ constexpr char kCompassWidget[] = R"HTML(<div class="cmp">
 <div class="cmp-rose" id="cmpRose"><b class="n">N</b><b class="e">E</b><b class="s">S</b><b class="w">W</b></div></div>
 <div class="cmp-val">Rotation <b id="cmpVal">0</b>&deg;</div></div>
 <script>(function(){function I(){var d=document.getElementById('cmpDial'),
-r=document.getElementById('cmpRose'),h=document.getElementById('radar_heading'),
-v=document.getElementById('cmpVal');if(!d||!h){return;}
+r=document.getElementById('cmpRose'),
+h=document.getElementById('radar_heading')||document.getElementsByName('radar_heading')[0],
+v=document.getElementById('cmpVal');if(!d||!h||d.dataset.i){return;}d.dataset.i=1;
 var g=parseInt(h.value||'0',10)||0;function A(){g=((g%360)+360)%360;
-r.style.transform='rotate('+g+'deg)';h.value=g;v.textContent=g;}A();
+r.style.transform='rotate('+g+'deg)';h.value=g;if(v){v.textContent=g;}}A();
 var dn=false,sa=0,sg=0;function an(e){var b=d.getBoundingClientRect(),
 cx=b.left+b.width/2,cy=b.top+b.height/2,
 x=(e.touches?e.touches[0].clientX:e.clientX),
@@ -158,8 +162,8 @@ window.addEventListener('pointerup',U);
 d.addEventListener('touchstart',D,{passive:false});
 window.addEventListener('touchmove',M,{passive:false});
 window.addEventListener('touchend',U);}
-if(document.readyState!='loading'){I();}
-else{document.addEventListener('DOMContentLoaded',I);}})();</script>)HTML";
+document.addEventListener('DOMContentLoaded',I);
+window.addEventListener('load',I);setTimeout(I,300);})();</script>)HTML";
 
 WiFiManagerParameter s_param_compass(kCompassWidget);
 WiFiManagerParameter s_param_heading("radar_heading", "", "0", 6,
@@ -216,6 +220,7 @@ void onPortalParamsSaved() {
 
 void attachPortalParams(WiFiManager& wm) {
   refreshPortalParamDefaults();
+  wm.addParameter(&s_param_back);
   wm.addParameter(&s_param_lat);
   wm.addParameter(&s_param_lon);
   wm.addParameter(&s_param_miles);

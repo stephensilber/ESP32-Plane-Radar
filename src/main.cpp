@@ -22,6 +22,7 @@ unsigned long g_wifi_down_since = 0;
 unsigned long g_last_reconnect_ms = 0;
 unsigned long g_last_adsb_fetch_ms = 0;
 unsigned long g_last_render_ms = 0;
+unsigned long g_last_route_ms = 0;
 
 void showRadarIfConnected() {
   if (WiFi.status() != WL_CONNECTED) {
@@ -73,11 +74,10 @@ void fetchAndDrawAircraft() {
   ui::radarDisplayRefreshAircraft();
   handleBootButton();
 
-  // After the frame is on screen: resolve one route in the gap before the next
-  // fetch, so the networked lookup never delays a draw.
+  // Register callsigns (cheap); the blocking lookup runs on its own throttled
+  // schedule in loop() so it doesn't stall motion every fetch.
   if (ui::radar::showRoute()) {
     noteVisibleRoutes();
-    services::route::pump();
   }
 }
 
@@ -135,6 +135,13 @@ void loop() {
     } else if (millis() - g_last_adsb_fetch_ms >= config::kAdsbFetchIntervalMs) {
       g_last_adsb_fetch_ms = millis();
       fetchAndDrawAircraft();
+      g_last_render_ms = millis();
+    } else if (ui::radar::showRoute() &&
+               millis() - g_last_route_ms >= config::kRouteLookupIntervalMs) {
+      // One blocking route lookup, spread out from the fetch so its TLS
+      // handshake only hitches motion occasionally instead of every cycle.
+      g_last_route_ms = millis();
+      services::route::pump();
       g_last_render_ms = millis();
     } else if (ui::radar::smoothMotion() &&
                millis() - g_last_render_ms >= ui::radar::renderIntervalMs()) {

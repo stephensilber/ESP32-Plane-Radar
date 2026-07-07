@@ -50,6 +50,10 @@ constexpr double kDefaultRadarLon = -96.8280292;
 
 /** Poll adsb.fi (API public limit: 1 req/s). */
 constexpr unsigned long kAdsbFetchIntervalMs = 3000;
+/** Resolve at most one flight route this often. Routes are static, so keeping
+ *  this well above the fetch interval spreads the blocking route lookups out so
+ *  they don't stall aircraft motion every cycle. */
+constexpr unsigned long kRouteLookupIntervalMs = 12000;
 /** Legacy scale unused — fetch uses radar::fetchRadiusKm() to screen edge. */
 constexpr float kAdsbFetchRadiusScale = 1.0f;
 /** false = hide aircraft with alt_baro "ground"; true = show them too. */

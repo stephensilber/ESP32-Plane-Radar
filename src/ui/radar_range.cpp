@@ -26,7 +26,7 @@ constexpr float kKmPerMile = 1.609344f;
 
 Preferences s_prefs;
 uint8_t s_range_index = kDefaultRangeIndex;
-bool s_use_miles = false;
+bool s_use_miles = true;
 bool s_show_runways = true;
 bool s_color_by_class = true;
 bool s_heli_icon = true;
@@ -87,7 +87,7 @@ void rangeInit() {
   const uint8_t saved = s_prefs.getUChar(kPrefsRangeKey, kDefaultRangeIndex);
   s_range_index =
       (saved < kRangePresetCount) ? saved : kDefaultRangeIndex;
-  s_use_miles = s_prefs.getBool(kPrefsMilesKey, false);
+  s_use_miles = s_prefs.getBool(kPrefsMilesKey, true);
   s_show_runways = s_prefs.getBool(kPrefsRunwaysKey, true);
   s_color_by_class = s_prefs.getBool(kPrefsColorClassKey, true);
   s_heli_icon = s_prefs.getBool(kPrefsHeliIconKey, true);
@@ -189,7 +189,7 @@ void formatCurrentRing3Label(char* buf, size_t len) {
 }
 
 void unitsReset() {
-  s_use_miles = false;
+  s_use_miles = true;
   s_show_runways = true;
   s_color_by_class = true;
   s_heli_icon = true;

@@ -12,9 +12,11 @@ namespace services::route {
 
 namespace {
 
-// adsb.lol route DB: GET redirects to vrs-standing-data; more current than
-// adsbdb for reused flight numbers (e.g. AAL409 -> DFW-LIR, not JFK-MIA).
-constexpr char kApiBase[] = "https://api.adsb.lol/api/0/route/";
+// adsb.lol route DB (vrs-standing-data) — more current than adsbdb for reused
+// flight numbers (e.g. AAL409 -> DFW-LIR, not JFK-MIA). We hit the static host
+// directly (the /api/0/route endpoint just 302s here); the directory is the
+// first two callsign chars, so we skip the redirect + its extra TLS handshake.
+constexpr char kRouteHost[] = "https://vrs-standing-data.adsb.lol/routes/";
 constexpr size_t kMaxRoutes = 24;
 // Kept short: this GET blocks the render loop (redirect + fresh TLS), so a slow
 // route server must fail fast rather than freeze aircraft motion for seconds.
@@ -156,8 +158,16 @@ int pickLeg(const Airport* ap, int n, float plat, float plon, float track_deg) {
 }
 
 bool fetchRoute(const Entry& entry, char* origin, char* dest) {
-  String url = kApiBase;
+  // Airline callsigns are always >=3 chars; guard anyway.
+  if (entry.callsign[0] == '\0' || entry.callsign[1] == '\0') {
+    return true;  // settled: no route.
+  }
+  String url = kRouteHost;
+  url += entry.callsign[0];
+  url += entry.callsign[1];
+  url += '/';
   url += entry.callsign;
+  url += ".json";
 
   WiFiClientSecure client;
   client.setInsecure();
@@ -165,8 +175,6 @@ bool fetchRoute(const Entry& entry, char* origin, char* dest) {
   HTTPClient http;
   http.setConnectTimeout(kConnectTimeoutMs);
   http.setTimeout(kRequestTimeoutMs);
-  // Route lookup 302-redirects to the vrs-standing-data host.
-  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   if (!http.begin(client, url)) {
     return false;
   }

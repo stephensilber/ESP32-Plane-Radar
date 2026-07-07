@@ -73,7 +73,7 @@ constexpr char kCoordInputAttrs[] =
 
 // ATC / radar-scope theme injected into every portal page's <head>.
 // Self-contained (no external fonts/assets) so it works on the captive AP.
-constexpr char kPortalCss[] = R"CSS(<style>
+constexpr char kPortalCss[] = R"CSS(<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><style>
 :root{--fg:#4dffa6;--dim:#1f8f5c;--acc:#00e676;--amber:#ffcf40}
 body{margin:0 auto;max-width:520px;padding:16px;color:var(--fg);font-family:ui-monospace,monospace;background:radial-gradient(120% 80% at 50% -10%,#0a3320 0%,#02100a 62%)}
 body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:9;background:repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 1px,transparent 1px 3px)}

@@ -97,6 +97,8 @@ void setup() {
   delay(500);
   Serial.println();
   Serial.println("Plane Radar");
+  // Build stamp so a flash can be confirmed from the serial log.
+  Serial.printf("Build: %s %s\n", __DATE__, __TIME__);
 
   bootButtonInit();
   displayInit();

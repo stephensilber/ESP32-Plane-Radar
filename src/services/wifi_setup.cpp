@@ -75,47 +75,23 @@ constexpr char kCoordInputAttrs[] =
 // Self-contained (no external fonts/assets) so it works on the captive AP.
 constexpr char kPortalCss[] = R"CSS(<style>
 :root{--fg:#4dffa6;--dim:#1f8f5c;--acc:#00e676;--amber:#ffcf40}
-*{box-sizing:border-box}
-body{margin:0 auto;max-width:560px;padding:20px 16px;color:var(--fg);
-font-family:ui-monospace,'Courier New',monospace;letter-spacing:.4px;
-background:radial-gradient(125% 85% at 50% -12%,#0a3d24 0%,#02100a 55%,#010a06 100%) fixed}
-body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:9;
-background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0 1px,transparent 1px 3px)}
-h1,h2,h3{color:var(--acc);text-transform:uppercase;letter-spacing:2px;
-text-shadow:0 0 8px rgba(0,230,118,.55)}
-.wrap{max-width:560px;margin:0 auto}
-button,input[type=submit],input[type=button]{width:100%;color:var(--fg);cursor:pointer;
-background:linear-gradient(180deg,#064a2a,#02160d);border:1px solid var(--acc);border-radius:6px;
-padding:11px;margin-top:6px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;
-text-shadow:0 0 5px rgba(0,230,118,.6);transition:box-shadow .15s}
-button:hover,input[type=submit]:hover{box-shadow:0 0 14px rgba(0,230,118,.65)}
-input[type=text],input[type=password],input[type=number],select,textarea{width:100%;
-color:var(--fg);background:#02160d;border:1px solid var(--dim);border-radius:4px;padding:9px;
-font-family:inherit;box-shadow:inset 0 0 8px rgba(0,230,118,.12)}
-input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 10px rgba(0,230,118,.5)}
+body{margin:0 auto;max-width:520px;padding:16px;color:var(--fg);background:#02100a;font-family:ui-monospace,monospace}
+h1,h2,h3{color:var(--acc);text-transform:uppercase;letter-spacing:2px}
+button,input[type=submit]{width:100%;color:var(--fg);background:#064a2a;border:1px solid var(--acc);border-radius:6px;padding:11px;margin-top:6px;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+input[type=text],input[type=password],input[type=number],select{width:100%;color:var(--fg);background:#02160d;border:1px solid var(--dim);border-radius:4px;padding:9px}
 input[type=checkbox]{accent-color:var(--acc);transform:scale(1.25);margin:8px 8px 8px 0}
-a{color:var(--acc);text-decoration:none}
-a:hover{text-shadow:0 0 8px rgba(0,230,118,.7)}
-.q{filter:hue-rotate(80deg) saturate(1.8)}
-hr{border:0;border-top:1px dashed var(--dim)}
-.cmp{margin:18px auto;text-align:center}
-.cmp-up{color:var(--amber);font-weight:700;letter-spacing:2px;margin-bottom:6px;font-size:12px;text-shadow:0 0 6px rgba(255,207,64,.6)}
-.cmp-dial{position:relative;width:180px;height:180px;margin:0 auto;border-radius:50%;
-border:2px solid var(--acc);background:radial-gradient(circle,#031f12,#010a06);
-box-shadow:0 0 18px rgba(0,230,118,.35),inset 0 0 22px rgba(0,230,118,.12);
-touch-action:none;cursor:grab;user-select:none}
-.cmp-dial:active{cursor:grabbing}
-.cmp-tick{position:absolute;top:-10px;left:50%;transform:translateX(-50%);width:0;height:0;
-border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:11px solid var(--amber)}
-.cmp-rose{position:absolute;inset:0;will-change:transform}
-.cmp-rose b{position:absolute;font-weight:700;color:var(--fg);font-size:15px}
-.cmp-rose .n{top:9px;left:50%;transform:translateX(-50%);color:var(--amber);text-shadow:0 0 6px rgba(255,207,64,.7)}
-.cmp-rose .s{bottom:9px;left:50%;transform:translateX(-50%)}
-.cmp-rose .e{right:11px;top:50%;transform:translateY(-50%)}
-.cmp-rose .w{left:11px;top:50%;transform:translateY(-50%)}
-.cmp-needle{position:absolute;top:18px;left:50%;width:2px;height:64px;transform:translateX(-50%);
-background:linear-gradient(var(--amber),rgba(255,207,64,0));box-shadow:0 0 6px rgba(255,207,64,.6)}
-.cmp-val{margin-top:10px;letter-spacing:1px;font-size:13px}
+a{color:var(--acc)}
+.cmp{margin:16px auto;text-align:center}
+.cmp-up{color:var(--amber);font-weight:700;font-size:12px;margin-bottom:6px}
+.cmp-dial{position:relative;width:170px;height:170px;margin:0 auto;border-radius:50%;border:2px solid var(--acc);background:#031f12;touch-action:none;cursor:grab;user-select:none}
+.cmp-tick{position:absolute;top:-9px;left:50%;margin-left:-6px;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid var(--amber)}
+.cmp-rose{position:absolute;inset:0}
+.cmp-rose b{position:absolute;font-weight:700;font-size:15px}
+.cmp-rose .n{top:8px;left:50%;margin-left:-5px;color:var(--amber)}
+.cmp-rose .s{bottom:8px;left:50%;margin-left:-5px}
+.cmp-rose .e{right:10px;top:50%;margin-top:-8px}
+.cmp-rose .w{left:10px;top:50%;margin-top:-8px}
+.cmp-val{margin-top:8px;font-size:13px}
 </style>)CSS";
 
 WiFiManagerParameter s_param_lat("radar_lat", "Latitude (deg)", "0",
@@ -161,13 +137,9 @@ WiFiManagerParameter s_param_fps("radar_fps", "Frame rate (FPS, 1-30)", "10", 4,
 // hidden radar_heading field that WiFiManager reads on save.
 constexpr char kCompassWidget[] = R"HTML(<div class="cmp">
 <div class="cmp-up">&#9650; TOP OF SCREEN</div>
-<div class="cmp-dial" id="cmpDial">
-<div class="cmp-tick"></div>
-<div class="cmp-rose" id="cmpRose">
-<div class="cmp-needle"></div>
-<b class="n">N</b><b class="e">E</b><b class="s">S</b><b class="w">W</b>
-</div></div>
-<div class="cmp-val">Radar rotation: <b id="cmpVal">0</b>&deg;</div></div>
+<div class="cmp-dial" id="cmpDial"><div class="cmp-tick"></div>
+<div class="cmp-rose" id="cmpRose"><b class="n">N</b><b class="e">E</b><b class="s">S</b><b class="w">W</b></div></div>
+<div class="cmp-val">Rotation <b id="cmpVal">0</b>&deg;</div></div>
 <script>(function(){function I(){var d=document.getElementById('cmpDial'),
 r=document.getElementById('cmpRose'),h=document.getElementById('radar_heading'),
 v=document.getElementById('cmpVal');if(!d||!h){return;}

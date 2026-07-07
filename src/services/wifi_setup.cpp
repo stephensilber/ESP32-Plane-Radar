@@ -153,6 +153,9 @@ WiFiManagerParameter s_param_smooth("smooth_motion",
                                     "Smooth motion (dead-reckoning)", "T", 2,
                                     s_smooth_checkbox_attrs, WFM_LABEL_AFTER);
 
+WiFiManagerParameter s_param_fps("radar_fps", "Frame rate (FPS, 1-30)", "10", 4,
+                                 " type=\"number\" min=\"1\" max=\"30\" step=\"1\"");
+
 // Interactive radar-rotation compass. Drag the rose so N points to real north
 // relative to the top of the screen; the chosen offset is written into the
 // hidden radar_heading field that WiFiManager reads on save.
@@ -215,6 +218,9 @@ void refreshPortalParamDefaults() {
   snprintf(s_smooth_checkbox_attrs, sizeof(s_smooth_checkbox_attrs),
            "type=\"checkbox\"%s", ui::radar::smoothMotion() ? " checked" : "");
   s_param_smooth.setValue("T", 2);
+  char fps_buf[5];
+  snprintf(fps_buf, sizeof(fps_buf), "%d", ui::radar::frameRateFps());
+  s_param_fps.setValue(fps_buf, 4);
   char heading_buf[6];
   snprintf(heading_buf, sizeof(heading_buf), "%d",
            static_cast<int>(ui::radar::headingOffsetDeg()));
@@ -232,6 +238,7 @@ void onPortalParamsSaved() {
   ui::radar::saveHeliIconFromPortal(s_param_heli_icon.getValue());
   ui::radar::saveShowRouteFromPortal(s_param_show_route.getValue());
   ui::radar::saveSmoothMotionFromPortal(s_param_smooth.getValue());
+  ui::radar::saveFpsFromPortal(s_param_fps.getValue());
   ui::radar::saveHeadingFromPortal(s_param_heading.getValue());
 }
 
@@ -245,6 +252,7 @@ void attachPortalParams(WiFiManager& wm) {
   wm.addParameter(&s_param_heli_icon);
   wm.addParameter(&s_param_show_route);
   wm.addParameter(&s_param_smooth);
+  wm.addParameter(&s_param_fps);
   wm.addParameter(&s_param_compass);
   wm.addParameter(&s_param_heading);
   wm.setSaveParamsCallback(onPortalParamsSaved);

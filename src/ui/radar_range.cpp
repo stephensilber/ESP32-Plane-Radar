@@ -21,6 +21,10 @@ constexpr char kPrefsHeliIconKey[] = "heliIcon";
 constexpr char kPrefsShowRouteKey[] = "showRoute";
 constexpr char kPrefsSmoothKey[] = "smoothMot";
 constexpr char kPrefsHeadingKey[] = "hdgOffset";
+constexpr char kPrefsFpsKey[] = "fps";
+constexpr int kDefaultFps = 10;
+constexpr int kMinFps = 1;
+constexpr int kMaxFps = 30;
 constexpr uint8_t kDefaultRangeIndex = 1;  // 10 km ring
 constexpr float kKmPerMile = 1.609344f;
 
@@ -33,6 +37,7 @@ bool s_heli_icon = true;
 bool s_show_route = false;
 bool s_smooth_motion = true;
 int16_t s_heading_offset = 0;
+int16_t s_fps = kDefaultFps;
 
 void saveRangeIndex() {
   if (!s_prefs.begin(kPrefsNamespace, false)) {
@@ -94,6 +99,10 @@ void rangeInit() {
   s_show_route = s_prefs.getBool(kPrefsShowRouteKey, false);
   s_smooth_motion = s_prefs.getBool(kPrefsSmoothKey, true);
   s_heading_offset = s_prefs.getShort(kPrefsHeadingKey, 0);
+  s_fps = s_prefs.getShort(kPrefsFpsKey, kDefaultFps);
+  if (s_fps < kMinFps || s_fps > kMaxFps) {
+    s_fps = kDefaultFps;
+  }
   s_prefs.end();
 }
 
@@ -126,6 +135,12 @@ bool showRoute() { return s_show_route; }
 bool smoothMotion() { return s_smooth_motion; }
 
 float headingOffsetDeg() { return static_cast<float>(s_heading_offset); }
+
+int frameRateFps() { return s_fps; }
+
+unsigned long renderIntervalMs() {
+  return 1000UL / static_cast<unsigned long>(s_fps > 0 ? s_fps : kDefaultFps);
+}
 
 void saveMilesFromPortal(const char* checkbox_value) {
   s_use_miles = portalCheckboxChecked(checkbox_value);
@@ -163,6 +178,18 @@ void saveSmoothMotionFromPortal(const char* checkbox_value) {
   Serial.printf("Smooth motion: %s\n", s_smooth_motion ? "on" : "off");
 }
 
+void saveFpsFromPortal(const char* value) {
+  int fps = (value != nullptr) ? atoi(value) : kDefaultFps;
+  if (fps < kMinFps) fps = kMinFps;
+  if (fps > kMaxFps) fps = kMaxFps;
+  s_fps = static_cast<int16_t>(fps);
+  if (s_prefs.begin(kPrefsNamespace, false)) {
+    s_prefs.putShort(kPrefsFpsKey, s_fps);
+    s_prefs.end();
+  }
+  Serial.printf("Frame rate: %d fps\n", fps);
+}
+
 void saveHeadingFromPortal(const char* value) {
   int deg = (value != nullptr) ? atoi(value) : 0;
   deg = ((deg % 360) + 360) % 360;
@@ -196,6 +223,7 @@ void unitsReset() {
   s_show_route = false;
   s_smooth_motion = true;
   s_heading_offset = 0;
+  s_fps = kDefaultFps;
   if (s_prefs.begin(kPrefsNamespace, false)) {
     s_prefs.remove(kPrefsMilesKey);
     s_prefs.remove(kPrefsRunwaysKey);
@@ -204,6 +232,7 @@ void unitsReset() {
     s_prefs.remove(kPrefsShowRouteKey);
     s_prefs.remove(kPrefsSmoothKey);
     s_prefs.remove(kPrefsHeadingKey);
+    s_prefs.remove(kPrefsFpsKey);
     s_prefs.end();
   }
 }

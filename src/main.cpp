@@ -137,7 +137,7 @@ void loop() {
       fetchAndDrawAircraft();
       g_last_render_ms = millis();
     } else if (ui::radar::smoothMotion() &&
-               millis() - g_last_render_ms >= config::kAircraftRenderIntervalMs) {
+               millis() - g_last_render_ms >= ui::radar::renderIntervalMs()) {
       // Re-render between fetches so dead-reckoned motion stays smooth.
       g_last_render_ms = millis();
       ui::radarDisplayRefreshAircraft();

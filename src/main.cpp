@@ -57,7 +57,8 @@ void noteVisibleRoutes() {
   const services::adsb::Aircraft* planes = services::adsb::aircraftList();
   for (size_t i = 0; i < n; ++i) {
     if (planes[i].klass == services::adsb::Class::Commercial) {
-      services::route::note(planes[i].callsign);
+      services::route::note(planes[i].callsign, planes[i].lat, planes[i].lon,
+                            planes[i].track_deg);
     }
   }
 }

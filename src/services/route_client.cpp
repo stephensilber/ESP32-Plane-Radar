@@ -5,6 +5,7 @@
 
 #include <ArduinoJson.h>
 
+#include <cmath>
 #include <cstring>
 
 namespace services::route {
@@ -24,6 +25,9 @@ struct Entry {
   char callsign[9];
   char origin[kCodeLen];
   char dest[kCodeLen];
+  float lat;
+  float lon;
+  float track_deg;
   State state;
 };
 
@@ -75,6 +79,80 @@ bool parseAirportCodes(const char* codes, char* origin, char* dest) {
   return origin[0] != '\0' && dest[0] != '\0';
 }
 
+struct Airport {
+  char iata[kCodeLen];
+  float lat;
+  float lon;
+};
+
+constexpr int kMaxLegs = 6;
+
+int parseAirports(JsonArray arr, Airport* out) {
+  int n = 0;
+  for (JsonObject a : arr) {
+    if (n >= kMaxLegs) {
+      break;
+    }
+    const char* code = a["iata"].as<const char*>();
+    if (code == nullptr || code[0] == '\0' || !a["lat"].is<float>() ||
+        !a["lon"].is<float>()) {
+      continue;
+    }
+    copyCode(out[n].iata, code, strlen(code));
+    out[n].lat = a["lat"].as<float>();
+    out[n].lon = a["lon"].as<float>();
+    ++n;
+  }
+  return n;
+}
+
+/**
+ * For a multi-stop routing, choose the segment the aircraft is currently on.
+ * Score = cross-track distance to the segment + a heavy penalty for the
+ * destination not being ahead (via track), which disambiguates out-and-back
+ * routes that share an endpoint (e.g. DFW-CZM-DFW). Returns the origin index.
+ */
+int pickLeg(const Airport* ap, int n, float plat, float plon, float track_deg) {
+  if (n <= 2) {
+    return 0;
+  }
+  constexpr float kDeg = 0.01745329252f;
+  constexpr float kKmPerDeg = 111.0f;
+  const float coslat = cosf(plat * kDeg);
+
+  float best_score = 1e30f;
+  int best_i = 0;
+  for (int i = 0; i + 1 < n; ++i) {
+    const float ax = (ap[i].lon - plon) * coslat * kKmPerDeg;
+    const float ay = (ap[i].lat - plat) * kKmPerDeg;
+    const float bx = (ap[i + 1].lon - plon) * coslat * kKmPerDeg;
+    const float by = (ap[i + 1].lat - plat) * kKmPerDeg;
+    const float vx = bx - ax;
+    const float vy = by - ay;
+    const float len2 = vx * vx + vy * vy;
+
+    // Plane is the origin; project it onto the clamped segment.
+    float t = (len2 > 0.0f) ? -(ax * vx + ay * vy) / len2 : 0.0f;
+    t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+    const float cx = ax + t * vx;
+    const float cy = ay + t * vy;
+    const float cross_km = sqrtf(cx * cx + cy * cy);
+
+    float bearing_to_b = atan2f(bx, by) / kDeg;
+    float diff = bearing_to_b - track_deg;
+    while (diff > 180.0f) diff -= 360.0f;
+    while (diff < -180.0f) diff += 360.0f;
+    const float align = cosf(diff * kDeg);  // 1 = heading toward B, -1 = away
+
+    const float score = cross_km + (1.0f - align) * 1000.0f;
+    if (score < best_score) {
+      best_score = score;
+      best_i = i;
+    }
+  }
+  return best_i;
+}
+
 bool fetchRoute(const Entry& entry, char* origin, char* dest) {
   String url = kApiBase;
   url += entry.callsign;
@@ -108,6 +186,18 @@ bool fetchRoute(const Entry& entry, char* origin, char* dest) {
     return true;  // 200 but not the expected JSON — settled, no route.
   }
 
+  // Prefer the airport list (has coordinates) so we can pick the current leg of
+  // a multi-stop routing; fall back to the plain first/last code string.
+  JsonArray airports = doc["_airports"].as<JsonArray>();
+  Airport ap[kMaxLegs];
+  const int n = airports.isNull() ? 0 : parseAirports(airports, ap);
+  if (n >= 2) {
+    const int i = pickLeg(ap, n, entry.lat, entry.lon, entry.track_deg);
+    strcpy(origin, ap[i].iata);
+    strcpy(dest, ap[i + 1].iata);
+    return true;
+  }
+
   const char* codes = doc["_airport_codes_iata"].as<const char*>();
   if (codes == nullptr) {
     return true;  // settled, no route.
@@ -120,8 +210,19 @@ bool fetchRoute(const Entry& entry, char* origin, char* dest) {
 
 void setPollFn(PollFn fn) { s_poll_fn = fn; }
 
-void note(const char* callsign) {
-  if (callsign == nullptr || callsign[0] == '\0' || find(callsign) != nullptr) {
+void note(const char* callsign, float lat, float lon, float track_deg) {
+  if (callsign == nullptr || callsign[0] == '\0') {
+    return;
+  }
+
+  // Keep a pending entry's position fresh so the leg pick uses the latest fix.
+  Entry* existing = find(callsign);
+  if (existing != nullptr) {
+    if (existing->state == State::Pending) {
+      existing->lat = lat;
+      existing->lon = lon;
+      existing->track_deg = track_deg;
+    }
     return;
   }
 
@@ -132,6 +233,9 @@ void note(const char* callsign) {
   slot.callsign[sizeof(slot.callsign) - 1] = '\0';
   slot.origin[0] = '\0';
   slot.dest[0] = '\0';
+  slot.lat = lat;
+  slot.lon = lon;
+  slot.track_deg = track_deg;
   slot.state = State::Pending;
 }
 

@@ -11,8 +11,12 @@ constexpr size_t kCodeLen = 4;
 using PollFn = void (*)();
 void setPollFn(PollFn fn);
 
-/** Register a callsign that may have a route (commercial flights). Idempotent. */
-void note(const char* callsign);
+/**
+ * Register a callsign that may have a route (commercial flights). Idempotent.
+ * The position/track are used to pick the current leg of a multi-stop routing
+ * (e.g. DFW-CZM-DFW) when the route is resolved.
+ */
+void note(const char* callsign, float lat, float lon, float track_deg);
 
 /**
  * Resolve at most one still-unknown callsign via adsbdb.com. Blocks on one

@@ -98,6 +98,24 @@ a{color:var(--acc);text-decoration:none}
 a:hover{text-shadow:0 0 8px rgba(0,230,118,.7)}
 .q{filter:hue-rotate(80deg) saturate(1.8)}
 hr{border:0;border-top:1px dashed var(--dim)}
+.cmp{margin:18px auto;text-align:center}
+.cmp-up{color:var(--amber);font-weight:700;letter-spacing:2px;margin-bottom:6px;font-size:12px;text-shadow:0 0 6px rgba(255,207,64,.6)}
+.cmp-dial{position:relative;width:180px;height:180px;margin:0 auto;border-radius:50%;
+border:2px solid var(--acc);background:radial-gradient(circle,#031f12,#010a06);
+box-shadow:0 0 18px rgba(0,230,118,.35),inset 0 0 22px rgba(0,230,118,.12);
+touch-action:none;cursor:grab;user-select:none}
+.cmp-dial:active{cursor:grabbing}
+.cmp-tick{position:absolute;top:-10px;left:50%;transform:translateX(-50%);width:0;height:0;
+border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:11px solid var(--amber)}
+.cmp-rose{position:absolute;inset:0;will-change:transform}
+.cmp-rose b{position:absolute;font-weight:700;color:var(--fg);font-size:15px}
+.cmp-rose .n{top:9px;left:50%;transform:translateX(-50%);color:var(--amber);text-shadow:0 0 6px rgba(255,207,64,.7)}
+.cmp-rose .s{bottom:9px;left:50%;transform:translateX(-50%)}
+.cmp-rose .e{right:11px;top:50%;transform:translateY(-50%)}
+.cmp-rose .w{left:11px;top:50%;transform:translateY(-50%)}
+.cmp-needle{position:absolute;top:18px;left:50%;width:2px;height:64px;transform:translateX(-50%);
+background:linear-gradient(var(--amber),rgba(255,207,64,0));box-shadow:0 0 6px rgba(255,207,64,.6)}
+.cmp-val{margin-top:10px;letter-spacing:1px;font-size:13px}
 </style>)CSS";
 
 WiFiManagerParameter s_param_lat("radar_lat", "Latitude (deg)", "0",
@@ -141,6 +159,43 @@ WiFiManagerParameter s_param_declutter("declutter",
                                        s_declutter_checkbox_attrs,
                                        WFM_LABEL_AFTER);
 
+// Interactive radar-rotation compass. Drag the rose so N points to real north
+// relative to the top of the screen; the chosen offset is written into the
+// hidden radar_heading field that WiFiManager reads on save.
+constexpr char kCompassWidget[] = R"HTML(<div class="cmp">
+<div class="cmp-up">&#9650; TOP OF SCREEN</div>
+<div class="cmp-dial" id="cmpDial">
+<div class="cmp-tick"></div>
+<div class="cmp-rose" id="cmpRose">
+<div class="cmp-needle"></div>
+<b class="n">N</b><b class="e">E</b><b class="s">S</b><b class="w">W</b>
+</div></div>
+<div class="cmp-val">Radar rotation: <b id="cmpVal">0</b>&deg;</div></div>
+<script>(function(){function I(){var d=document.getElementById('cmpDial'),
+r=document.getElementById('cmpRose'),h=document.getElementById('radar_heading'),
+v=document.getElementById('cmpVal');if(!d||!h){return;}
+var g=parseInt(h.value||'0',10)||0;function A(){g=((g%360)+360)%360;
+r.style.transform='rotate('+g+'deg)';h.value=g;v.textContent=g;}A();
+var dn=false,sa=0,sg=0;function an(e){var b=d.getBoundingClientRect(),
+cx=b.left+b.width/2,cy=b.top+b.height/2,
+x=(e.touches?e.touches[0].clientX:e.clientX),
+y=(e.touches?e.touches[0].clientY:e.clientY);
+return Math.atan2(x-cx,-(y-cy))*180/Math.PI;}
+function D(e){dn=true;sa=an(e);sg=g;e.preventDefault();}
+function M(e){if(!dn){return;}g=Math.round(sg+(an(e)-sa));A();e.preventDefault();}
+function U(){dn=false;}
+d.addEventListener('pointerdown',D);window.addEventListener('pointermove',M);
+window.addEventListener('pointerup',U);
+d.addEventListener('touchstart',D,{passive:false});
+window.addEventListener('touchmove',M,{passive:false});
+window.addEventListener('touchend',U);}
+if(document.readyState!='loading'){I();}
+else{document.addEventListener('DOMContentLoaded',I);}})();</script>)HTML";
+
+WiFiManagerParameter s_param_compass(kCompassWidget);
+WiFiManagerParameter s_param_heading("radar_heading", "", "0", 6,
+                                     "type=\"hidden\"");
+
 void refreshPortalParamDefaults() {
   char lat_buf[kCoordParamLen + 1];
   char lon_buf[kCoordParamLen + 1];
@@ -169,6 +224,10 @@ void refreshPortalParamDefaults() {
   snprintf(s_declutter_checkbox_attrs, sizeof(s_declutter_checkbox_attrs),
            "type=\"checkbox\"%s", ui::radar::declutterLabels() ? " checked" : "");
   s_param_declutter.setValue("T", 2);
+  char heading_buf[6];
+  snprintf(heading_buf, sizeof(heading_buf), "%d",
+           static_cast<int>(ui::radar::headingOffsetDeg()));
+  s_param_heading.setValue(heading_buf, 6);
 }
 
 void onPortalParamsSaved() {
@@ -183,6 +242,7 @@ void onPortalParamsSaved() {
   ui::radar::saveShowRouteFromPortal(s_param_show_route.getValue());
   ui::radar::saveSmoothMotionFromPortal(s_param_smooth.getValue());
   ui::radar::saveDeclutterFromPortal(s_param_declutter.getValue());
+  ui::radar::saveHeadingFromPortal(s_param_heading.getValue());
 }
 
 void attachPortalParams(WiFiManager& wm) {
@@ -196,6 +256,8 @@ void attachPortalParams(WiFiManager& wm) {
   wm.addParameter(&s_param_show_route);
   wm.addParameter(&s_param_smooth);
   wm.addParameter(&s_param_declutter);
+  wm.addParameter(&s_param_compass);
+  wm.addParameter(&s_param_heading);
   wm.setSaveParamsCallback(onPortalParamsSaved);
 }
 

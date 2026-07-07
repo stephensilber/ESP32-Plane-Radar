@@ -21,6 +21,9 @@ constexpr int kScaleGapFromOuterRing = 6;
 
 /** Target cap height (px) for N/S/E/W. */
 constexpr int kCardinalLabelHeightPx = 14;
+/** N/S/E/W sit on a ring this far inside the screen edge (px) so they can be
+ *  repositioned around the bezel when the radar is rotated. */
+constexpr int kCardinalRingInsetPx = 12;
 /** Scale label is this many px shorter than cardinals. */
 constexpr int kScaleBelowCardinalPx = 3;
 

@@ -233,11 +233,24 @@ constexpr float kKmPerDeg = 111.0f;
 
 void offsetKmFromCenter(float lat, float lon, float* dx_km, float* dy_km,
                         float* dist_km) {
-  *dx_km =
+  const float east =
       static_cast<float>(lon - services::location::lon()) * kKmPerDeg;
-  *dy_km =
+  const float north =
       static_cast<float>(lat - services::location::lat()) * kKmPerDeg;
-  *dist_km = sqrtf((*dx_km) * (*dx_km) + (*dy_km) * (*dy_km));
+  *dist_km = sqrtf(east * east + north * north);
+
+  // Rotate the offset clockwise by the heading so geographic bearing b renders
+  // at screen angle b + offset. Distance is rotation-invariant.
+  const float th = ui::radar::headingOffsetDeg() * 0.01745329252f;
+  if (th == 0.0f) {
+    *dx_km = east;
+    *dy_km = north;
+    return;
+  }
+  const float c = cosf(th);
+  const float s = sinf(th);
+  *dx_km = east * c + north * s;
+  *dy_km = -east * s + north * c;
 }
 
 /** Dead-reckon a target forward from its last fix along track at ground speed.
@@ -669,18 +682,19 @@ void drawAircraft() {
     drawBeyondRingDot(dots[d].x, dots[d].y, dots[d].color);
   }
 
+  const float rot = ui::radar::headingOffsetDeg();
   sortDrawItemsFarFirst(items, draw_count);
   for (size_t d = 0; d < draw_count; ++d) {
     const size_t i = items[d].index;
     const int x = items[d].x;
     const int y = items[d].y;
     const uint16_t color = aircraftColor(planes[i]);
-    drawSpeedVector(x, y, planes[i].nose_deg, planes[i].track_deg,
+    drawSpeedVector(x, y, planes[i].nose_deg + rot, planes[i].track_deg + rot,
                     planes[i].gs_knots, radar::kColorTrackVector);
     if (planes[i].is_rotor && ui::radar::heliIcon()) {
-      drawHelicopter(x, y, planes[i].nose_deg, color);
+      drawHelicopter(x, y, planes[i].nose_deg + rot, color);
     } else {
-      drawHeadingTriangle(x, y, planes[i].nose_deg, color);
+      drawHeadingTriangle(x, y, planes[i].nose_deg + rot, color);
     }
   }
 
@@ -794,10 +808,15 @@ void drawRings(int cx, int cy, int outer_radius) {
 }
 
 void drawCrosshairs(int cx, int cy, int radius, uint16_t color) {
-  s_draw->drawWideLine(cx, cy - radius, cx, cy + radius,
-                       radar::kGridStrokeHalfWidth, color);
-  s_draw->drawWideLine(cx - radius, cy, cx + radius, cy,
-                       radar::kGridStrokeHalfWidth, color);
+  const float th = ui::radar::headingOffsetDeg() * 0.01745329252f;
+  // Two diameters: the N-S axis at screen angle th, the E-W axis at th+90.
+  for (int k = 0; k < 2; ++k) {
+    const float phi = th + static_cast<float>(k) * 1.5707963268f;
+    const int dx = static_cast<int>(lroundf(sinf(phi) * radius));
+    const int dy = static_cast<int>(lroundf(cosf(phi) * radius));
+    s_draw->drawWideLine(cx - dx, cy + dy, cx + dx, cy - dy,
+                         radar::kGridStrokeHalfWidth, color);
+  }
 }
 
 void drawCenterDot(int cx, int cy) {
@@ -807,13 +826,20 @@ void drawCenterDot(int cx, int cy) {
 void drawCardinalLabels() {
   const int cx = radar::kCenterX;
   const int cy = radar::kCenterY;
-  const int edge = radar::kSize - 1;
+  const float th = ui::radar::headingOffsetDeg() * 0.01745329252f;
+  const int r = radar::kCenterX - radar::kCardinalRingInsetPx;
 
-  drawCardinalLabel("N", cx, radar::kCardinalNorthOffsetY, textdatum_t::top_center);
-  drawCardinalLabel("S", cx, edge + radar::kCardinalSouthOffsetY,
-                    textdatum_t::bottom_center);
-  drawCardinalLabel("W", 0, cy, textdatum_t::middle_left);
-  drawCardinalLabel("E", edge, cy, textdatum_t::middle_right);
+  // Placed at each bearing + rotation around the bezel, but drawn upright.
+  const struct {
+    const char* label;
+    float bearing_deg;
+  } marks[] = {{"N", 0.0f}, {"E", 90.0f}, {"S", 180.0f}, {"W", 270.0f}};
+  for (const auto& m : marks) {
+    const float phi = m.bearing_deg * 0.01745329252f + th;
+    const int x = cx + static_cast<int>(lroundf(sinf(phi) * r));
+    const int y = cy - static_cast<int>(lroundf(cosf(phi) * r));
+    drawCardinalLabel(m.label, x, y, textdatum_t::middle_center);
+  }
 }
 
 int scaleLabelAnchorX(int cx, int outer_radius) {

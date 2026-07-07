@@ -5,6 +5,7 @@
 #include <Preferences.h>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 namespace ui::radar {
@@ -20,6 +21,7 @@ constexpr char kPrefsHeliIconKey[] = "heliIcon";
 constexpr char kPrefsShowRouteKey[] = "showRoute";
 constexpr char kPrefsSmoothKey[] = "smoothMot";
 constexpr char kPrefsDeclutterKey[] = "declutter";
+constexpr char kPrefsHeadingKey[] = "hdgOffset";
 constexpr uint8_t kDefaultRangeIndex = 1;  // 10 km ring
 constexpr float kKmPerMile = 1.609344f;
 
@@ -32,6 +34,7 @@ bool s_heli_icon = true;
 bool s_show_route = false;
 bool s_smooth_motion = true;
 bool s_declutter_labels = true;
+int16_t s_heading_offset = 0;
 
 void saveRangeIndex() {
   if (!s_prefs.begin(kPrefsNamespace, false)) {
@@ -93,6 +96,7 @@ void rangeInit() {
   s_show_route = s_prefs.getBool(kPrefsShowRouteKey, false);
   s_smooth_motion = s_prefs.getBool(kPrefsSmoothKey, true);
   s_declutter_labels = s_prefs.getBool(kPrefsDeclutterKey, true);
+  s_heading_offset = s_prefs.getShort(kPrefsHeadingKey, 0);
   s_prefs.end();
 }
 
@@ -125,6 +129,8 @@ bool showRoute() { return s_show_route; }
 bool smoothMotion() { return s_smooth_motion; }
 
 bool declutterLabels() { return s_declutter_labels; }
+
+float headingOffsetDeg() { return static_cast<float>(s_heading_offset); }
 
 void saveMilesFromPortal(const char* checkbox_value) {
   s_use_miles = portalCheckboxChecked(checkbox_value);
@@ -168,6 +174,17 @@ void saveDeclutterFromPortal(const char* checkbox_value) {
   Serial.printf("Declutter labels: %s\n", s_declutter_labels ? "on" : "off");
 }
 
+void saveHeadingFromPortal(const char* value) {
+  int deg = (value != nullptr) ? atoi(value) : 0;
+  deg = ((deg % 360) + 360) % 360;
+  s_heading_offset = static_cast<int16_t>(deg);
+  if (s_prefs.begin(kPrefsNamespace, false)) {
+    s_prefs.putShort(kPrefsHeadingKey, s_heading_offset);
+    s_prefs.end();
+  }
+  Serial.printf("Heading offset: %d deg\n", deg);
+}
+
 void formatRing3Label(char* buf, size_t len, float ring3_km, bool use_miles) {
   if (use_miles) {
     const int mi = static_cast<int>(lroundf(ring3_km / kKmPerMile));
@@ -190,6 +207,7 @@ void unitsReset() {
   s_show_route = false;
   s_smooth_motion = true;
   s_declutter_labels = true;
+  s_heading_offset = 0;
   if (s_prefs.begin(kPrefsNamespace, false)) {
     s_prefs.remove(kPrefsMilesKey);
     s_prefs.remove(kPrefsRunwaysKey);
@@ -198,6 +216,7 @@ void unitsReset() {
     s_prefs.remove(kPrefsShowRouteKey);
     s_prefs.remove(kPrefsSmoothKey);
     s_prefs.remove(kPrefsDeclutterKey);
+    s_prefs.remove(kPrefsHeadingKey);
     s_prefs.end();
   }
 }

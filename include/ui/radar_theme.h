@@ -61,6 +61,10 @@ constexpr int kBeyondRingDotRadiusPx = 4;
 constexpr int kBeyondRingScreenMarginPx = 2;
 /** Target cap height (px) for aircraft tags (bold, slightly above scale label). */
 constexpr int kAircraftTagLabelHeightPx = 13;
+/** Cap dead-reckoning extrapolation so stale data can't fling targets away. */
+constexpr float kAircraftMaxExtrapolateSec = 8.0f;
+/** Padding (px) around tag boxes when testing overlap for declutter. */
+constexpr int kTagDeclutterPadPx = 1;
 
 /** RGB565 palette targets (applied in initPalette). */
 constexpr uint8_t kBgR = 4;

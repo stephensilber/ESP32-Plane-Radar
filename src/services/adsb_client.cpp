@@ -21,6 +21,7 @@ constexpr unsigned long kRequestTimeoutMs = 10000;
 
 Aircraft s_aircraft[kMaxAircraft];
 size_t s_aircraft_count = 0;
+unsigned long s_last_update_ms = 0;
 PollFn s_poll_fn = nullptr;
 
 void pollNetwork() {
@@ -300,6 +301,7 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
   JsonArray ac = doc["ac"].as<JsonArray>();
   if (ac.isNull()) {
     s_aircraft_count = 0;
+    s_last_update_ms = millis();
     return true;
   }
 
@@ -325,8 +327,16 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
   }
 
   s_aircraft_count = n;
+  s_last_update_ms = millis();
   Serial.printf("adsb: %u aircraft\n", static_cast<unsigned>(n));
   return true;
+}
+
+float secondsSinceUpdate() {
+  if (s_last_update_ms == 0) {
+    return 0.0f;
+  }
+  return static_cast<float>(millis() - s_last_update_ms) / 1000.0f;
 }
 
 }  // namespace services::adsb

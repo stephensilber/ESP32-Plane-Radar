@@ -240,6 +240,26 @@ void offsetKmFromCenter(float lat, float lon, float* dx_km, float* dy_km,
   *dist_km = sqrtf((*dx_km) * (*dx_km) + (*dy_km) * (*dy_km));
 }
 
+/** Dead-reckon a target forward from its last fix along track at ground speed.
+ *  Uses the same /kKmPerDeg convention as offsetKmFromCenter so on-screen
+ *  motion stays consistent with the plotted position. */
+void extrapolatedLatLon(const services::adsb::Aircraft& p, float age_s,
+                        float* lat, float* lon) {
+  *lat = p.lat;
+  *lon = p.lon;
+  if (p.gs_knots <= 0.0f || age_s <= 0.0f) {
+    return;
+  }
+  if (age_s > radar::kAircraftMaxExtrapolateSec) {
+    age_s = radar::kAircraftMaxExtrapolateSec;
+  }
+  constexpr float kDegToRad = 0.01745329252f;
+  const float dist_km = p.gs_knots * 1.852f * (age_s / 3600.0f);
+  const float rad = p.track_deg * kDegToRad;
+  *lat += dist_km * cosf(rad) / kKmPerDeg;  // north component
+  *lon += dist_km * sinf(rad) / kKmPerDeg;  // east component
+}
+
 float innerRingMaxKm() {
   const float outer_km = radar::rangeCurrent().outer_km;
   return outer_km * (static_cast<float>(radar::kGridOuterRadius -
@@ -446,46 +466,49 @@ bool routeTagFor(const services::adsb::Aircraft& plane, char* buf, size_t len) {
   return buf[0] != '\0';
 }
 
+// Tag detail collapses under crowding: 3 = callsign + type/route + altitude,
+// 2 drops altitude, 1 = callsign only, 0 = suppressed.
+struct TagRect {
+  int left = 0;
+  int top = 0;
+  int w = 0;
+  int h = 0;
+};
+
+struct TagLayout {
+  int anchor_x = 0;
+  int ly = 0;
+  bool tag_on_right = false;
+  TagRect rect;
+};
+
+bool tagRectsOverlap(const TagRect& a, const TagRect& b) {
+  const int pad = radar::kTagDeclutterPadPx;
+  return !(a.left + a.w + pad <= b.left || b.left + b.w + pad <= a.left ||
+           a.top + a.h + pad <= b.top || b.top + b.h + pad <= a.top);
+}
+
 int measureTagBlockWidth(const services::adsb::Aircraft& plane,
-                         const char* route) {
+                         const char* route, int lines) {
   applyTagStyle();
   int max_w = 0;
-  if (plane.callsign[0] != '\0') {
-    const int w = s_draw->textWidth(plane.callsign);
-    if (w > max_w) {
-      max_w = w;
-    }
+  if (lines >= 1 && plane.callsign[0] != '\0') {
+    max_w = std::max(max_w, static_cast<int>(s_draw->textWidth(plane.callsign)));
   }
-  if (plane.type[0] != '\0') {
+  if (lines >= 2 && plane.type[0] != '\0') {
     int w = s_draw->textWidth(plane.type);
     if (route[0] != '\0') {
       w += kTagRouteGapPx + s_draw->textWidth(route);
     }
-    if (w > max_w) {
-      max_w = w;
-    }
+    max_w = std::max(max_w, w);
   }
-  if (plane.alt[0] != '\0') {
-    const int w = s_draw->textWidth(plane.alt);
-    if (w > max_w) {
-      max_w = w;
-    }
+  if (lines >= 3 && plane.alt[0] != '\0') {
+    max_w = std::max(max_w, static_cast<int>(s_draw->textWidth(plane.alt)));
   }
   return max_w;
 }
 
-void drawAircraftTag(int x, int y, const services::adsb::Aircraft& plane) {
-  initTagLabelMetrics();
-  applyTagStyle();
-
-  char route[2 * services::route::kCodeLen];
-  routeTagFor(plane, route, sizeof(route));
-
-  const int line_h = s_draw->fontHeight();
-  const int block_w = measureTagBlockWidth(plane, route);
-  const int block_h = line_h * 3;
-  int ly = y - block_h / 2;
-
+void computeTagLayout(int x, int y, int block_w, int block_h, TagLayout* out) {
   const int symbol_half =
       radar::kAircraftNoseLenPx + radar::kAircraftTailHalfPx;
   // West (left): tag toward center on the right; east (right): tag on the left.
@@ -494,26 +517,42 @@ void drawAircraftTag(int x, int y, const services::adsb::Aircraft& plane) {
   if (tag_on_right) {
     anchor_x = x + symbol_half + radar::kAircraftLabelGapPx;
     anchor_x = std::min(anchor_x, radar::kSize - block_w - 1);
-    s_draw->setTextDatum(textdatum_t::top_left);
   } else {
     anchor_x = x - symbol_half - radar::kAircraftLabelGapPx;
     anchor_x = std::max(anchor_x, block_w + 1);
-    s_draw->setTextDatum(textdatum_t::top_right);
   }
-  ly = std::max(1, std::min(ly, radar::kSize - block_h - 1));
+  int ly = std::max(1, std::min(y - block_h / 2, radar::kSize - block_h - 1));
 
-  if (plane.callsign[0] != '\0') {
+  out->anchor_x = anchor_x;
+  out->ly = ly;
+  out->tag_on_right = tag_on_right;
+  out->rect.left = tag_on_right ? anchor_x : anchor_x - block_w;
+  out->rect.top = ly;
+  out->rect.w = block_w;
+  out->rect.h = block_h;
+}
+
+void drawTagLines(const services::adsb::Aircraft& plane, const char* route,
+                  int lines, const TagLayout& layout) {
+  applyTagStyle();
+  s_draw->setTextDatum(layout.tag_on_right ? textdatum_t::top_left
+                                           : textdatum_t::top_right);
+  const int line_h = s_draw->fontHeight();
+  const int anchor_x = layout.anchor_x;
+  int ly = layout.ly;
+
+  if (lines >= 1 && plane.callsign[0] != '\0') {
     s_draw->setTextColor(radar::kColorLabel, radar::kColorBackground);
     s_draw->drawString(plane.callsign, anchor_x, ly);
   }
   ly += line_h;
 
-  if (plane.type[0] != '\0') {
+  if (lines >= 2 && plane.type[0] != '\0') {
     // Model in amber; route codes (if any) alongside it in a distinct color.
     // Left datum grows the line rightward, right datum grows it leftward.
     const int type_w = s_draw->textWidth(plane.type);
     const int route_w = route[0] != '\0' ? s_draw->textWidth(route) : 0;
-    if (tag_on_right) {
+    if (layout.tag_on_right) {
       s_draw->setTextColor(radar::kColorTagType, radar::kColorBackground);
       s_draw->drawString(plane.type, anchor_x, ly);
       if (route_w > 0) {
@@ -533,7 +572,7 @@ void drawAircraftTag(int x, int y, const services::adsb::Aircraft& plane) {
   }
   ly += line_h;
 
-  if (plane.alt[0] != '\0') {
+  if (lines >= 3 && plane.alt[0] != '\0') {
     s_draw->setTextColor(radar::kColorTagAltitude, radar::kColorBackground);
     s_draw->drawString(plane.alt, anchor_x, ly);
   }
@@ -588,16 +627,22 @@ void drawAircraft() {
   size_t draw_count = 0;
   size_t dot_count = 0;
 
+  const float age_s = services::adsb::secondsSinceUpdate();
+
   for (size_t i = 0; i < n; ++i) {
+    float lat = 0.0f;
+    float lon = 0.0f;
+    extrapolatedLatLon(planes[i], age_s, &lat, &lon);
+
     float dx_km = 0.0f;
     float dy_km = 0.0f;
     float dist_km = 0.0f;
-    offsetKmFromCenter(planes[i].lat, planes[i].lon, &dx_km, &dy_km, &dist_km);
+    offsetKmFromCenter(lat, lon, &dx_km, &dy_km, &dist_km);
 
     if (isInsideOuterRingKm(dist_km)) {
       int x = 0;
       int y = 0;
-      latLonToScreen(planes[i].lat, planes[i].lon, &x, &y);
+      latLonToScreen(lat, lon, &x, &y);
       items[draw_count].index = i;
       items[draw_count].x = x;
       items[draw_count].y = y;
@@ -608,8 +653,7 @@ void drawAircraft() {
 
     int dot_x = 0;
     int dot_y = 0;
-    if (!beyondRingEdgeDotFromLatLon(planes[i].lat, planes[i].lon, &dot_x,
-                                     &dot_y)) {
+    if (!beyondRingEdgeDotFromLatLon(lat, lon, &dot_x, &dot_y)) {
       continue;
     }
     dots[dot_count].x = dot_x;
@@ -638,9 +682,51 @@ void drawAircraft() {
       drawHeadingTriangle(x, y, planes[i].nose_deg, color);
     }
   }
-  for (size_t d = 0; d < draw_count; ++d) {
+
+  // Tags placed near-first (items are far-first): closer targets keep full
+  // detail; a tag that would overlap an already-placed one sheds lines
+  // (altitude, then type/route) and is suppressed only if even the callsign
+  // can't fit clear. This keeps dense stacks legible.
+  initTagLabelMetrics();
+  applyTagStyle();
+  const int line_h = s_draw->fontHeight();
+  TagRect placed[services::adsb::kMaxAircraft];
+  size_t placed_count = 0;
+
+  for (int d = static_cast<int>(draw_count) - 1; d >= 0; --d) {
     const size_t i = items[d].index;
-    drawAircraftTag(items[d].x, items[d].y, planes[i]);
+    char route[2 * services::route::kCodeLen];
+    routeTagFor(planes[i], route, sizeof(route));
+
+    int chosen_lines = 0;
+    TagLayout layout;
+    for (int lines = 3; lines >= 1; --lines) {
+      const int block_w = measureTagBlockWidth(planes[i], route, lines);
+      if (block_w <= 0) {
+        continue;
+      }
+      TagLayout candidate;
+      computeTagLayout(items[d].x, items[d].y, block_w, line_h * lines,
+                       &candidate);
+      bool clash = false;
+      for (size_t p = 0; p < placed_count; ++p) {
+        if (tagRectsOverlap(candidate.rect, placed[p])) {
+          clash = true;
+          break;
+        }
+      }
+      if (!clash) {
+        chosen_lines = lines;
+        layout = candidate;
+        break;
+      }
+    }
+
+    if (chosen_lines == 0) {
+      continue;  // fully crowded out — symbol still shows.
+    }
+    drawTagLines(planes[i], route, chosen_lines, layout);
+    placed[placed_count++] = layout.rect;
   }
 }
 

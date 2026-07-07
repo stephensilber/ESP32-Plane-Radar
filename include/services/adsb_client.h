@@ -25,6 +25,9 @@ constexpr size_t kMaxAircraft = 64;
 size_t aircraftCount();
 const Aircraft* aircraftList();
 
+/** Seconds since the last successful fetch (for dead-reckoning between polls). */
+float secondsSinceUpdate();
+
 /** Hook invoked during long HTTP I/O (e.g. wifiLoop). Optional. */
 using PollFn = void (*)();
 void setPollFn(PollFn fn);

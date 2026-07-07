@@ -66,6 +66,9 @@ constexpr int kBeyondRingScreenMarginPx = 2;
 constexpr int kAircraftTagLabelHeightPx = 13;
 /** Cap dead-reckoning extrapolation so stale data can't fling targets away. */
 constexpr float kAircraftMaxExtrapolateSec = 8.0f;
+/** Breadcrumb trail line half-width (~1.5px total) and oldest-segment dimness. */
+constexpr float kTrailLineHalfWidth = 0.75f;
+constexpr float kTrailMinBrightness = 0.18f;
 
 /** RGB565 palette targets (applied in initPalette). */
 constexpr uint8_t kBgR = 4;

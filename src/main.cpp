@@ -10,6 +10,7 @@
 #include "services/adsb_client.h"
 #include "services/radar_location.h"
 #include "services/route_client.h"
+#include "services/trail.h"
 #include "services/wifi_setup.h"
 #include "ui/radar_display.h"
 #include "ui/radar_range.h"
@@ -73,6 +74,14 @@ void fetchAndDrawAircraft() {
   }
   ui::radarDisplayRefreshAircraft();
   handleBootButton();
+
+  if (ui::radar::showTrails()) {
+    const size_t n = services::adsb::aircraftCount();
+    const services::adsb::Aircraft* planes = services::adsb::aircraftList();
+    for (size_t i = 0; i < n; ++i) {
+      services::trail::append(planes[i].hex, planes[i].lat, planes[i].lon);
+    }
+  }
 
   // Register callsigns (cheap); the blocking lookup runs on its own throttled
   // schedule in loop() so it doesn't stall motion every fetch.

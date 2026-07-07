@@ -135,6 +135,10 @@ WiFiManagerParameter s_param_smooth("smooth_motion",
                                     "Smooth motion (dead-reckoning)", "T", 2,
                                     s_smooth_checkbox_attrs, WFM_LABEL_AFTER);
 
+char s_trails_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_trails("show_trails", "Show aircraft trails", "T",
+                                    2, s_trails_checkbox_attrs, WFM_LABEL_AFTER);
+
 WiFiManagerParameter s_param_fps("radar_fps", "Frame rate (FPS, 1-30)", "10", 4,
                                  " type=\"number\" min=\"1\" max=\"30\" step=\"1\"");
 
@@ -197,6 +201,9 @@ void refreshPortalParamDefaults() {
   snprintf(s_smooth_checkbox_attrs, sizeof(s_smooth_checkbox_attrs),
            "type=\"checkbox\"%s", ui::radar::smoothMotion() ? " checked" : "");
   s_param_smooth.setValue("T", 2);
+  snprintf(s_trails_checkbox_attrs, sizeof(s_trails_checkbox_attrs),
+           "type=\"checkbox\"%s", ui::radar::showTrails() ? " checked" : "");
+  s_param_trails.setValue("T", 2);
   char fps_buf[5];
   snprintf(fps_buf, sizeof(fps_buf), "%d", ui::radar::frameRateFps());
   s_param_fps.setValue(fps_buf, 4);
@@ -217,6 +224,7 @@ void onPortalParamsSaved() {
   ui::radar::saveHeliIconFromPortal(s_param_heli_icon.getValue());
   ui::radar::saveShowRouteFromPortal(s_param_show_route.getValue());
   ui::radar::saveSmoothMotionFromPortal(s_param_smooth.getValue());
+  ui::radar::saveTrailsFromPortal(s_param_trails.getValue());
   ui::radar::saveFpsFromPortal(s_param_fps.getValue());
   ui::radar::saveHeadingFromPortal(s_param_heading.getValue());
 }
@@ -232,6 +240,7 @@ void attachPortalParams(WiFiManager& wm) {
   wm.addParameter(&s_param_heli_icon);
   wm.addParameter(&s_param_show_route);
   wm.addParameter(&s_param_smooth);
+  wm.addParameter(&s_param_trails);
   wm.addParameter(&s_param_fps);
   wm.addParameter(&s_param_compass);
   wm.addParameter(&s_param_heading);

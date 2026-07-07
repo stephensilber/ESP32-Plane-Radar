@@ -13,6 +13,7 @@
 #include "services/adsb_client.h"
 #include "services/radar_location.h"
 #include "services/route_client.h"
+#include "services/trail.h"
 #include "ui/radar_range.h"
 #include "ui/radar_theme.h"
 #include "ui/runway_overlay.h"
@@ -453,6 +454,63 @@ void drawSpeedVector(int cx, int cy, float heading_deg, float track_deg,
                        color);
 }
 
+/** Blend an RGB565 color toward the background; t=1 full color, t=0 background. */
+uint16_t blendToBackground(uint16_t color, float t) {
+  const uint16_t bg = radar::kColorBackground;
+  const int cr = (color >> 11) & 0x1F, cg = (color >> 5) & 0x3F, cb = color & 0x1F;
+  const int br = (bg >> 11) & 0x1F, bgg = (bg >> 5) & 0x3F, bb = bg & 0x1F;
+  const int r = br + static_cast<int>((cr - br) * t + 0.5f);
+  const int g = bgg + static_cast<int>((cg - bgg) * t + 0.5f);
+  const int b = bb + static_cast<int>((cb - bb) * t + 0.5f);
+  return static_cast<uint16_t>((r << 11) | (g << 5) | b);
+}
+
+bool insideGridRing(int x, int y) {
+  return distSqFromCenter(x, y) <=
+         radar::kGridOuterRadius * radar::kGridOuterRadius;
+}
+
+/** Breadcrumb trail: fades from dim (oldest) to full color, then connects the
+ *  newest fix to the aircraft's current (extrapolated) position. */
+void drawTrail(const services::adsb::Aircraft& plane, int cur_x, int cur_y,
+               uint16_t color) {
+  const services::trail::Trail* t = services::trail::get(plane.hex);
+  if (t == nullptr || t->count < 1) {
+    return;
+  }
+
+  int px = 0;
+  int py = 0;
+  bool have_prev = false;
+  bool prev_inside = false;
+  const int last = t->count - 1;
+  for (int i = 0; i < t->count; ++i) {
+    float lat = 0.0f;
+    float lon = 0.0f;
+    services::trail::pointAt(*t, i, &lat, &lon);
+    int x = 0;
+    int y = 0;
+    latLonToScreen(lat, lon, &x, &y);
+    const bool inside = insideGridRing(x, y);
+
+    if (have_prev && inside && prev_inside) {
+      const float age = last > 0 ? static_cast<float>(i) / last : 1.0f;
+      const float bright =
+          radar::kTrailMinBrightness + (1.0f - radar::kTrailMinBrightness) * age;
+      s_draw->drawWideLine(px, py, x, y, radar::kTrailLineHalfWidth,
+                           blendToBackground(color, bright));
+    }
+    px = x;
+    py = y;
+    prev_inside = inside;
+    have_prev = true;
+  }
+
+  if (prev_inside && insideGridRing(cur_x, cur_y)) {
+    s_draw->drawWideLine(px, py, cur_x, cur_y, radar::kTrailLineHalfWidth, color);
+  }
+}
+
 void applyTagStyle() {
   if (s_tag_use_vlw) {
     displayFontSetSmoothSize(*s_draw, s_tag_vlw_size);
@@ -675,6 +733,15 @@ void drawAircraft() {
 
   const float rot = ui::radar::headingOffsetDeg();
   sortDrawItemsFarFirst(items, draw_count);
+
+  // Trails first, so symbols and vectors sit on top of them.
+  if (ui::radar::showTrails()) {
+    for (size_t d = 0; d < draw_count; ++d) {
+      const size_t i = items[d].index;
+      drawTrail(planes[i], items[d].x, items[d].y, aircraftColor(planes[i]));
+    }
+  }
+
   for (size_t d = 0; d < draw_count; ++d) {
     const size_t i = items[d].index;
     const int x = items[d].x;

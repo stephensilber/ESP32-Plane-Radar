@@ -16,6 +16,7 @@ struct Aircraft {
   char callsign[9];
   char type[5];
   char alt[12];
+  char hex[7];  // ICAO 24-bit address, stable identity across polls
   Class klass;
   bool is_rotor;
 };

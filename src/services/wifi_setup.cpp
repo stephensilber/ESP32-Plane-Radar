@@ -139,6 +139,9 @@ char s_trails_checkbox_attrs[32] = "type=\"checkbox\"";
 WiFiManagerParameter s_param_trails("show_trails", "Show aircraft trails", "T",
                                     2, s_trails_checkbox_attrs, WFM_LABEL_AFTER);
 
+// A checkbox (label-after) sits right before this numeric field (label-before),
+// so their labels collide on one line without a break between them.
+WiFiManagerParameter s_param_spacer("<br>");
 WiFiManagerParameter s_param_fps("radar_fps", "Frame rate (FPS, 1-30)", "10", 4,
                                  " type=\"number\" min=\"1\" max=\"30\" step=\"1\"");
 
@@ -241,6 +244,7 @@ void attachPortalParams(WiFiManager& wm) {
   wm.addParameter(&s_param_show_route);
   wm.addParameter(&s_param_smooth);
   wm.addParameter(&s_param_trails);
+  wm.addParameter(&s_param_spacer);
   wm.addParameter(&s_param_fps);
   wm.addParameter(&s_param_compass);
   wm.addParameter(&s_param_heading);

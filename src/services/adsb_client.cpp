@@ -297,8 +297,22 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
   }
   http.end();
 
+  // Parse only the fields we use — the feed carries ~50 per aircraft and
+  // deserializing all of them balloons the document's heap use (which, in
+  // performance mode, must coexist with the portal building a page).
+  JsonDocument filter;
+  static const char* const kFields[] = {
+      "lat",      "lon",      "true_heading", "mag_heading", "track",
+      "dir",      "gs",       "tas",          "ias",         "alt_baro",
+      "alt_geom", "hex",      "flight",       "t",           "dbFlags",
+      "r",        "category"};
+  for (const char* f : kFields) {
+    filter["ac"][0][f] = true;
+  }
+
   JsonDocument doc;
-  const DeserializationError err = deserializeJson(doc, payload);
+  const DeserializationError err =
+      deserializeJson(doc, payload, DeserializationOption::Filter(filter));
   if (err) {
     Serial.printf("adsb: JSON parse error: %s\n", err.c_str());
     return false;
@@ -338,7 +352,9 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
   s_count[w] = n;
   s_update_ms[w] = millis();
   s_active = w;  // publish the completed snapshot
-  Serial.printf("adsb: %u aircraft\n", static_cast<unsigned>(n));
+  Serial.printf("adsb: %u aircraft (freeHeap %u, maxAlloc %u)\n",
+                static_cast<unsigned>(n), ESP.getFreeHeap(),
+                ESP.getMaxAllocHeap());
   return true;
 }
 

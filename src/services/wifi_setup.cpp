@@ -75,9 +75,9 @@ constexpr char kCoordInputAttrs[] =
 // Self-contained (no external fonts/assets) so it works on the captive AP.
 constexpr char kPortalCss[] = R"CSS(<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><style>
 :root{--fg:#4dffa6;--dim:#1f8f5c;--acc:#00e676;--amber:#ffcf40}
-body{margin:0 auto;max-width:520px;padding:16px;color:var(--fg);font-family:ui-monospace,monospace;background:radial-gradient(120% 80% at 50% -10%,#0a3320 0%,#02100a 62%)}
-body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:9;background:repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 1px,transparent 1px 3px)}
+body{margin:0 auto;max-width:520px;padding:16px;color:var(--fg);font-family:ui-monospace,monospace;background:radial-gradient(130% 90% at 50% -10%,#0a3320 0%,#02100a 62%) fixed}
 h1,h2,h3{color:var(--acc);text-transform:uppercase;letter-spacing:2px;text-shadow:0 0 7px rgba(0,230,118,.5)}
+.msg{max-width:360px;margin:24px auto;padding:16px;text-align:center;border:1px solid var(--acc);border-radius:8px;background:#04160c;color:var(--acc);text-transform:uppercase;letter-spacing:2px;font-weight:700;box-shadow:0 0 16px rgba(0,230,118,.3)}
 button,input[type=submit]{width:100%;color:var(--fg);background:#064a2a;border:1px solid var(--acc);border-radius:6px;padding:11px;margin-top:6px;font-weight:700;text-transform:uppercase;letter-spacing:1px;text-shadow:0 0 5px rgba(0,230,118,.5);transition:box-shadow .15s}
 button:hover,input[type=submit]:hover{box-shadow:0 0 12px rgba(0,230,118,.55)}
 input[type=text],input[type=password],input[type=number],select{width:100%;color:var(--fg);background:#02160d;border:1px solid var(--dim);border-radius:4px;padding:9px}
@@ -96,7 +96,16 @@ a{color:var(--acc)}
 .cmp-rose .e{right:10px;top:50%;margin-top:-8px}
 .cmp-rose .w{left:10px;top:50%;margin-top:-8px}
 .cmp-val{margin-top:8px;font-size:13px}
-</style>)CSS";
+</style>
+<script>document.addEventListener('DOMContentLoaded',function(){
+document.querySelectorAll("form[action='/param'] button").forEach(function(b){
+if(b.textContent.trim()==='Setup'){b.textContent='Options';}});
+if(location.pathname.indexOf('paramsave')>=0){
+var m=document.querySelector('.msg')||document.body;
+var a=document.createElement('a');a.href='/param';a.className='bk';
+a.textContent='← Back to Options';a.style.display='block';a.style.maxWidth='360px';
+a.style.margin='16px auto';a.style.textAlign='center';
+m.parentNode.insertBefore(a,m.nextSibling);}});</script>)CSS";
 
 WiFiManagerParameter s_param_back("<a href=\"/\" class=\"bk\">&#8592; Back</a>");
 

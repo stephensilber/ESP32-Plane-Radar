@@ -60,45 +60,6 @@ int performGetWithPoll(HTTPClient& http) {
   return HTTPC_ERROR_READ_TIMEOUT;
 }
 
-bool readResponseBodyWithPoll(HTTPClient& http, String& payload) {
-  WiFiClient* stream = http.getStreamPtr();
-  if (stream == nullptr) {
-    return false;
-  }
-
-  const int content_length = http.getSize();
-  if (content_length > 0) {
-    payload.reserve(static_cast<unsigned>(content_length + 1));
-  }
-
-  uint8_t buffer[512];
-  const unsigned long deadline = millis() + kRequestTimeoutMs;
-  while (millis() < deadline) {
-    pollNetwork();
-    const int available = stream->available();
-    if (available > 0) {
-      const int to_read =
-          available > static_cast<int>(sizeof(buffer)) ? static_cast<int>(sizeof(buffer))
-                                                       : available;
-      const int read_bytes = stream->readBytes(buffer, to_read);
-      if (read_bytes > 0) {
-        payload.concat(reinterpret_cast<const char*>(buffer),
-                       static_cast<unsigned>(read_bytes));
-      }
-    }
-    if (content_length > 0 &&
-        static_cast<int>(payload.length()) >= content_length) {
-      break;
-    }
-    if (!http.connected() && stream->available() <= 0) {
-      break;
-    }
-    delay(1);
-  }
-
-  return payload.length() > 0;
-}
-
 float kmToNauticalMiles(float km) { return km / kKmPerNm; }
 
 bool readJsonFloat(const JsonObject& obj, const char* key, float* out) {
@@ -297,17 +258,12 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
     return false;
   }
 
-  String payload;
-  if (!readResponseBodyWithPoll(http, payload)) {
-    Serial.println("adsb: empty response");
-    http.end();
-    return false;
-  }
-  http.end();
-
-  // Parse only the fields we use — the feed carries ~50 per aircraft and
-  // deserializing all of them balloons the document's heap use (which, in
-  // performance mode, must coexist with the portal building a page).
+  // Parse only the fields we use — the feed carries ~50 per aircraft, so the
+  // filter keeps the document small. Critically, we parse straight from the
+  // network stream rather than buffering the whole response into a String:
+  // at the widest zoom a 30-40KB body can't fit a contiguous heap block, which
+  // was truncating the read (InvalidInput / IncompleteInput). Streaming reads
+  // it incrementally and only retains the filtered fields.
   JsonDocument filter;
   static const char* const kFields[] = {
       "lat",      "lon",      "true_heading", "mag_heading", "track",
@@ -318,9 +274,13 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
     filter["ac"][0][f] = true;
   }
 
+  WiFiClient* stream = http.getStreamPtr();
   JsonDocument doc;
   const DeserializationError err =
-      deserializeJson(doc, payload, DeserializationOption::Filter(filter));
+      stream ? deserializeJson(doc, *stream,
+                               DeserializationOption::Filter(filter))
+             : DeserializationError(DeserializationError::EmptyInput);
+  http.end();
   if (err) {
     Serial.printf("adsb: JSON parse error: %s\n", err.c_str());
     return false;

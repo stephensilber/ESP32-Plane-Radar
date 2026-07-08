@@ -939,11 +939,32 @@ bool ensureFrameSprite() {
 // Double-buffered frame: composite the grid AND aircraft into the off-screen
 // sprite, then blit it to the panel in a single pushSprite. Because the panel
 // is updated in one pass, labels never show an erase/redraw gap — no flicker.
+/** Round an RGB565 pixel to the nearest RGB332 (256-color) value and back — a
+ *  faithful preview of what an 8-bit sprite would render (incl. banded edges). */
+uint16_t quantizeToRgb332(uint16_t c) {
+  const uint8_t r3 = (c >> 13) & 0x07;
+  const uint8_t g3 = (c >> 8) & 0x07;
+  const uint8_t b2 = (c >> 3) & 0x03;
+  const uint8_t r5 = (r3 << 2) | (r3 >> 1);
+  const uint8_t g6 = (g3 << 3) | g3;
+  const uint8_t b5 = (b2 << 3) | (b2 << 1) | (b2 >> 1);
+  return static_cast<uint16_t>((r5 << 11) | (g6 << 5) | b5);
+}
+
 void renderFrame() {
   drawStaticGrid(s_frame);  // opens its own DrawScope(s_frame)
   {
     const DrawScope scope(s_frame);
     drawAircraft();
+  }
+  if (ui::radar::sim8bit()) {
+    uint16_t* buf = static_cast<uint16_t*>(s_frame.getBuffer());
+    if (buf != nullptr) {
+      const int px = radar::kSize * radar::kSize;
+      for (int i = 0; i < px; ++i) {
+        buf[i] = quantizeToRgb332(buf[i]);
+      }
+    }
   }
   s_frame.pushSprite(0, 0);
   tft.setTextDatum(textdatum_t::top_left);

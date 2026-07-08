@@ -33,10 +33,11 @@ constexpr int kRingCount = 4;
 constexpr float kGridStrokeHalfWidth = 1.0f;
 
 constexpr int kCenterDotRadius = 2;
-/** Light orange for the center dot during a fetch (subtle activity cue). */
-constexpr uint8_t kFetchDotR = 255;
-constexpr uint8_t kFetchDotG = 176;
-constexpr uint8_t kFetchDotB = 74;
+/** Soft light green for the center dot during a fetch — a subtle activity cue,
+ *  a slight shift from the white dot you only notice if you're watching. */
+constexpr uint8_t kFetchDotR = 150;
+constexpr uint8_t kFetchDotG = 255;
+constexpr uint8_t kFetchDotB = 170;
 
 /** Filled aircraft symbol (nose triangle). */
 constexpr int kAircraftNoseLenPx = 8;

@@ -59,6 +59,7 @@ constexpr char kWifiPrefsNamespace[] = "wifi";
 constexpr char kPrefsForcePortalKey[] = "portal";
 
 bool s_force_config_portal = false;
+volatile bool s_ota_active = false;
 WiFiManager s_wm;
 bool s_wm_configured = false;
 
@@ -70,6 +71,52 @@ bool wifiLinkUp();
 constexpr int kCoordParamLen = 20;
 constexpr char kCoordInputAttrs[] =
     " type=\"number\" step=\"0.000001\"";
+
+// ATC / radar-scope theme injected into every portal page's <head>.
+// Self-contained (no external fonts/assets) so it works on the captive AP.
+constexpr char kPortalCss[] = R"CSS(<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><style>
+:root{--fg:#4dffa6;--dim:#1f8f5c;--acc:#00e676;--amber:#ffcf40}
+body{margin:0 auto;max-width:520px;padding:16px;color:var(--fg);font-family:ui-monospace,monospace;background:radial-gradient(130% 90% at 50% -10%,#0a3320 0%,#02100a 62%) fixed}
+h1,h2,h3{color:var(--acc);text-transform:uppercase;letter-spacing:2px;text-shadow:0 0 7px rgba(0,230,118,.5)}
+.msg{max-width:360px;margin:24px auto;padding:16px;text-align:center;border:1px solid var(--acc);border-radius:8px;background:#04160c;color:var(--acc);text-transform:uppercase;letter-spacing:2px;font-weight:700;box-shadow:0 0 16px rgba(0,230,118,.3)}
+button,input[type=submit]{width:100%;color:var(--fg);background:#064a2a;border:1px solid var(--acc);border-radius:6px;padding:11px;margin-top:6px;font-weight:700;text-transform:uppercase;letter-spacing:1px;text-shadow:0 0 5px rgba(0,230,118,.5);transition:box-shadow .15s}
+button:hover,input[type=submit]:hover{box-shadow:0 0 12px rgba(0,230,118,.55)}
+button#uploadbin{background:#064a2a}
+input[type=text],input[type=password],input[type=number],select{width:100%;color:var(--fg);background:#02160d;border:1px solid var(--dim);border-radius:4px;padding:9px}
+input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 9px rgba(0,230,118,.45)}
+input[type=checkbox]{accent-color:var(--acc);transform:scale(1.25);margin:8px 8px 8px 0}
+a{color:var(--acc)}
+.bk{display:block;width:fit-content;margin:0 0 18px;padding:8px 14px;border:1px solid var(--dim);border-radius:6px;text-transform:uppercase;letter-spacing:1px;font-weight:700}
+.cmp{margin:16px auto;text-align:center}
+.cmp-up{color:var(--amber);font-weight:700;font-size:12px;margin-bottom:6px}
+.cmp-dial{position:relative;width:170px;height:170px;margin:0 auto;border-radius:50%;border:2px solid var(--acc);background:radial-gradient(circle,#031f12,#010a06);box-shadow:0 0 14px rgba(0,230,118,.3),inset 0 0 16px rgba(0,230,118,.1);touch-action:none;cursor:grab;user-select:none}
+.cmp-tick{position:absolute;top:4px;left:50%;margin-left:-5px;border-left:5px solid transparent;border-right:5px solid transparent;border-top:9px solid var(--amber)}
+.cmp-rose{position:absolute;inset:0}
+.cmp-rose b{position:absolute;font-weight:700;font-size:15px}
+.cmp-rose .n{top:20px;left:50%;margin-left:-5px;color:var(--amber)}
+.cmp-rose .s{bottom:16px;left:50%;margin-left:-5px}
+.cmp-rose .e{right:10px;top:50%;margin-top:-8px}
+.cmp-rose .w{left:10px;top:50%;margin-top:-8px}
+.cmp-val{margin-top:8px;font-size:13px}
+input[type=range]{width:100%;accent-color:var(--acc);margin:8px 0}
+.links{margin:24px auto 8px;max-width:360px;text-align:center}
+.links-h{color:var(--dim);text-transform:uppercase;letter-spacing:2px;font-size:11px;margin-bottom:6px}
+.links a{color:var(--acc);display:block;padding:5px 0;font-size:13px}
+</style>
+<script>document.addEventListener('DOMContentLoaded',function(){
+document.querySelectorAll("form[action='/param'] button").forEach(function(b){
+if(b.textContent.trim()==='Setup'){b.textContent='Options';}});
+if(location.pathname.indexOf('paramsave')>=0){
+var m=document.querySelector('.msg')||document.body;
+var a=document.createElement('a');a.href='/param';a.className='bk';
+a.textContent='← Back to Options';a.style.display='block';a.style.maxWidth='360px';
+a.style.margin='16px auto';a.style.textAlign='center';
+m.parentNode.insertBefore(a,m.nextSibling);}
+document.querySelectorAll('h1,h3').forEach(function(h){if(h.textContent.trim()==='WiFiManager')h.textContent='Aircraft Radar';});
+var fo=document.getElementById('fpsout'),fi=document.getElementsByName('radar_fps')[0];if(fo&&fi)fo.textContent=fi.value;
+if(location.pathname==='/'){var box=document.createElement('div');box.className='links';box.innerHTML='<div class="links-h">Useful links</div><a href="https://web.esphome.io/" target="_blank" rel="noopener">ESP Web (logs, flash)</a><a href="https://adsb.lol/" target="_blank" rel="noopener">adsb.lol (feed &amp; routes)</a><a href="https://www.adsbdb.com/" target="_blank" rel="noopener">adsbdb (aircraft database)</a>';document.body.appendChild(box);}});</script>)CSS";
+
+WiFiManagerParameter s_param_back("<a href=\"/\" class=\"bk\">&#8592; Back</a>");
 
 WiFiManagerParameter s_param_lat("radar_lat", "Latitude (deg)", "0",
                                 kCoordParamLen, kCoordInputAttrs);
@@ -84,6 +131,108 @@ char s_runways_checkbox_attrs[32] = "type=\"checkbox\"";
 WiFiManagerParameter s_param_runways("show_runways", "Show airport runways", "T", 2,
                                      s_runways_checkbox_attrs, WFM_LABEL_AFTER);
 
+char s_speed_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_speed("show_speed",
+                                   "Tag shows speed (mph) not altitude", "T", 2,
+                                   s_speed_checkbox_attrs, WFM_LABEL_AFTER);
+
+char s_icons_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_icons("icons_max",
+                                   "Icons only at widest range (no labels)", "T",
+                                   2, s_icons_checkbox_attrs, WFM_LABEL_AFTER);
+
+WiFiManagerParameter s_param_flt_hdr(
+    "<p style=\"margin:16px 0 2px;color:var(--dim);text-transform:uppercase;"
+    "letter-spacing:1px;font-size:12px\">Show on map</p>");
+char s_flt_com_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_flt_com("flt_com", "Commercial", "T", 2,
+                                     s_flt_com_attrs, WFM_LABEL_AFTER);
+char s_flt_priv_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_flt_priv("flt_priv", "Private", "T", 2,
+                                      s_flt_priv_attrs, WFM_LABEL_AFTER);
+char s_flt_mil_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_flt_mil("flt_mil", "Military", "T", 2,
+                                     s_flt_mil_attrs, WFM_LABEL_AFTER);
+char s_flt_heli_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_flt_heli("flt_heli", "Helicopters", "T", 2,
+                                      s_flt_heli_attrs, WFM_LABEL_AFTER);
+char s_flt_plane_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_flt_plane("flt_plane", "Planes", "T", 2,
+                                       s_flt_plane_attrs, WFM_LABEL_AFTER);
+
+char s_color_class_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_color_class("color_class",
+                                         "Color aircraft by type", "T", 2,
+                                         s_color_class_checkbox_attrs,
+                                         WFM_LABEL_AFTER);
+
+char s_heli_icon_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_heli_icon("heli_icon", "Distinct helicopter icon",
+                                       "T", 2, s_heli_icon_checkbox_attrs,
+                                       WFM_LABEL_AFTER);
+
+char s_show_route_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_show_route("show_route",
+                                        "Show flight route (origin/destination)",
+                                        "T", 2, s_show_route_checkbox_attrs,
+                                        WFM_LABEL_AFTER);
+
+char s_smooth_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_smooth("smooth_motion",
+                                    "Smooth motion (dead-reckoning)", "T", 2,
+                                    s_smooth_checkbox_attrs, WFM_LABEL_AFTER);
+
+char s_trails_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_trails("show_trails", "Show aircraft trails", "T",
+                                    2, s_trails_checkbox_attrs, WFM_LABEL_AFTER);
+
+char s_perf_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_perf("perf_mode",
+                                  "Performance mode (restart to apply)", "T", 2,
+                                  s_perf_checkbox_attrs, WFM_LABEL_AFTER);
+
+// A checkbox (label-after) sits right before this numeric field (label-before),
+// so their labels collide on one line without a break between them.
+WiFiManagerParameter s_param_spacer("<br>");
+WiFiManagerParameter s_param_fps(
+    "radar_fps", "Frame rate: <b id=\"fpsout\">12</b> FPS", "12", 4,
+    " type=\"range\" min=\"1\" max=\"30\" step=\"1\""
+    " oninput=\"var o=document.getElementById('fpsout');if(o)o.textContent=this.value\"");
+
+// Interactive radar-rotation compass. Drag the rose so N points to real north
+// relative to the top of the screen; the chosen offset is written into the
+// hidden radar_heading field that WiFiManager reads on save.
+constexpr char kCompassWidget[] = R"HTML(<div class="cmp">
+<div class="cmp-up">&#9650; TOP OF SCREEN</div>
+<div class="cmp-dial" id="cmpDial"><div class="cmp-tick"></div>
+<div class="cmp-rose" id="cmpRose"><b class="n">N</b><b class="e">E</b><b class="s">S</b><b class="w">W</b></div></div>
+<div class="cmp-val">Rotation <b id="cmpVal">0</b>&deg;</div></div>
+<script>(function(){function I(){var d=document.getElementById('cmpDial'),
+r=document.getElementById('cmpRose'),
+h=document.getElementById('radar_heading')||document.getElementsByName('radar_heading')[0],
+v=document.getElementById('cmpVal');if(!d||!h||d.dataset.i){return;}d.dataset.i=1;
+var g=parseInt(h.value||'0',10)||0;function A(){g=((g%360)+360)%360;
+r.style.transform='rotate('+g+'deg)';h.value=g;if(v){v.textContent=g;}}A();
+var dn=false,sa=0,sg=0;function an(e){var b=d.getBoundingClientRect(),
+cx=b.left+b.width/2,cy=b.top+b.height/2,
+x=(e.touches?e.touches[0].clientX:e.clientX),
+y=(e.touches?e.touches[0].clientY:e.clientY);
+return Math.atan2(x-cx,-(y-cy))*180/Math.PI;}
+function D(e){dn=true;sa=an(e);sg=g;e.preventDefault();}
+function M(e){if(!dn){return;}g=Math.round(sg+(an(e)-sa));A();e.preventDefault();}
+function U(){dn=false;}
+d.addEventListener('pointerdown',D);window.addEventListener('pointermove',M);
+window.addEventListener('pointerup',U);
+d.addEventListener('touchstart',D,{passive:false});
+window.addEventListener('touchmove',M,{passive:false});
+window.addEventListener('touchend',U);}
+document.addEventListener('DOMContentLoaded',I);
+window.addEventListener('load',I);setTimeout(I,300);})();</script>)HTML";
+
+WiFiManagerParameter s_param_compass(kCompassWidget);
+WiFiManagerParameter s_param_heading("radar_heading", "", "0", 6,
+                                     "type=\"hidden\"");
+
 void refreshPortalParamDefaults() {
   char lat_buf[kCoordParamLen + 1];
   char lon_buf[kCoordParamLen + 1];
@@ -97,6 +246,53 @@ void refreshPortalParamDefaults() {
   snprintf(s_runways_checkbox_attrs, sizeof(s_runways_checkbox_attrs),
            "type=\"checkbox\"%s", ui::radar::showRunways() ? " checked" : "");
   s_param_runways.setValue("T", 2);
+  snprintf(s_speed_checkbox_attrs, sizeof(s_speed_checkbox_attrs),
+           "type=\"checkbox\"%s", ui::radar::showSpeed() ? " checked" : "");
+  s_param_speed.setValue("T", 2);
+  snprintf(s_icons_checkbox_attrs, sizeof(s_icons_checkbox_attrs),
+           "type=\"checkbox\"%s",
+           ui::radar::iconsOnlyAtMaxZoom() ? " checked" : "");
+  s_param_icons.setValue("T", 2);
+  snprintf(s_flt_com_attrs, sizeof(s_flt_com_attrs), "type=\"checkbox\"%s",
+           ui::radar::showCommercial() ? " checked" : "");
+  s_param_flt_com.setValue("T", 2);
+  snprintf(s_flt_priv_attrs, sizeof(s_flt_priv_attrs), "type=\"checkbox\"%s",
+           ui::radar::showPrivate() ? " checked" : "");
+  s_param_flt_priv.setValue("T", 2);
+  snprintf(s_flt_mil_attrs, sizeof(s_flt_mil_attrs), "type=\"checkbox\"%s",
+           ui::radar::showMilitary() ? " checked" : "");
+  s_param_flt_mil.setValue("T", 2);
+  snprintf(s_flt_heli_attrs, sizeof(s_flt_heli_attrs), "type=\"checkbox\"%s",
+           ui::radar::showHelicopters() ? " checked" : "");
+  s_param_flt_heli.setValue("T", 2);
+  snprintf(s_flt_plane_attrs, sizeof(s_flt_plane_attrs), "type=\"checkbox\"%s",
+           ui::radar::showPlanes() ? " checked" : "");
+  s_param_flt_plane.setValue("T", 2);
+  snprintf(s_color_class_checkbox_attrs, sizeof(s_color_class_checkbox_attrs),
+           "type=\"checkbox\"%s", ui::radar::colorByClass() ? " checked" : "");
+  s_param_color_class.setValue("T", 2);
+  snprintf(s_heli_icon_checkbox_attrs, sizeof(s_heli_icon_checkbox_attrs),
+           "type=\"checkbox\"%s", ui::radar::heliIcon() ? " checked" : "");
+  s_param_heli_icon.setValue("T", 2);
+  snprintf(s_show_route_checkbox_attrs, sizeof(s_show_route_checkbox_attrs),
+           "type=\"checkbox\"%s", ui::radar::showRoute() ? " checked" : "");
+  s_param_show_route.setValue("T", 2);
+  snprintf(s_smooth_checkbox_attrs, sizeof(s_smooth_checkbox_attrs),
+           "type=\"checkbox\"%s", ui::radar::smoothMotion() ? " checked" : "");
+  s_param_smooth.setValue("T", 2);
+  snprintf(s_trails_checkbox_attrs, sizeof(s_trails_checkbox_attrs),
+           "type=\"checkbox\"%s", ui::radar::showTrails() ? " checked" : "");
+  s_param_trails.setValue("T", 2);
+  snprintf(s_perf_checkbox_attrs, sizeof(s_perf_checkbox_attrs),
+           "type=\"checkbox\"%s", ui::radar::perfMode() ? " checked" : "");
+  s_param_perf.setValue("T", 2);
+  char fps_buf[5];
+  snprintf(fps_buf, sizeof(fps_buf), "%d", ui::radar::frameRateFps());
+  s_param_fps.setValue(fps_buf, 4);
+  char heading_buf[6];
+  snprintf(heading_buf, sizeof(heading_buf), "%d",
+           static_cast<int>(ui::radar::headingOffsetDeg()));
+  s_param_heading.setValue(heading_buf, 6);
 }
 
 void onPortalParamsSaved() {
@@ -106,14 +302,51 @@ void onPortalParamsSaved() {
   }
   ui::radar::saveMilesFromPortal(s_param_miles.getValue());
   ui::radar::saveRunwaysFromPortal(s_param_runways.getValue());
+  ui::radar::saveSpeedFromPortal(s_param_speed.getValue());
+  ui::radar::saveIconsOnlyFromPortal(s_param_icons.getValue());
+  ui::radar::saveShowCommercialFromPortal(s_param_flt_com.getValue());
+  ui::radar::saveShowPrivateFromPortal(s_param_flt_priv.getValue());
+  ui::radar::saveShowMilitaryFromPortal(s_param_flt_mil.getValue());
+  ui::radar::saveShowHelicoptersFromPortal(s_param_flt_heli.getValue());
+  ui::radar::saveShowPlanesFromPortal(s_param_flt_plane.getValue());
+  ui::radar::saveColorByClassFromPortal(s_param_color_class.getValue());
+  ui::radar::saveHeliIconFromPortal(s_param_heli_icon.getValue());
+  ui::radar::saveShowRouteFromPortal(s_param_show_route.getValue());
+  ui::radar::saveSmoothMotionFromPortal(s_param_smooth.getValue());
+  ui::radar::saveTrailsFromPortal(s_param_trails.getValue());
+  ui::radar::savePerfModeFromPortal(s_param_perf.getValue());
+  ui::radar::saveFpsFromPortal(s_param_fps.getValue());
+  ui::radar::saveHeadingFromPortal(s_param_heading.getValue());
+  // Rebuild the checkbox "checked" / field defaults so the Options page reflects
+  // what was just saved instead of the stale portal-start state.
+  refreshPortalParamDefaults();
 }
 
 void attachPortalParams(WiFiManager& wm) {
   refreshPortalParamDefaults();
+  wm.addParameter(&s_param_back);
   wm.addParameter(&s_param_lat);
   wm.addParameter(&s_param_lon);
   wm.addParameter(&s_param_miles);
   wm.addParameter(&s_param_runways);
+  wm.addParameter(&s_param_speed);
+  wm.addParameter(&s_param_icons);
+  wm.addParameter(&s_param_flt_hdr);
+  wm.addParameter(&s_param_flt_com);
+  wm.addParameter(&s_param_flt_priv);
+  wm.addParameter(&s_param_flt_mil);
+  wm.addParameter(&s_param_flt_heli);
+  wm.addParameter(&s_param_flt_plane);
+  wm.addParameter(&s_param_color_class);
+  wm.addParameter(&s_param_heli_icon);
+  wm.addParameter(&s_param_show_route);
+  wm.addParameter(&s_param_smooth);
+  wm.addParameter(&s_param_trails);
+  wm.addParameter(&s_param_perf);
+  wm.addParameter(&s_param_spacer);
+  wm.addParameter(&s_param_fps);
+  wm.addParameter(&s_param_compass);
+  wm.addParameter(&s_param_heading);
   wm.setSaveParamsCallback(onPortalParamsSaved);
 }
 
@@ -223,7 +456,20 @@ void ensureWifiManager() {
   s_wm.setAPStaticIPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1),
                            IPAddress(255, 255, 255, 0));
   s_wm.setHostname(config::kPortalHostname);
+  s_wm.setTitle("Aircraft Radar");
   s_wm.setAPCallback(onConfigPortalApStarted);
+  // An OTA upload needs the whole radio to itself; latch a flag when it starts
+  // so the fetch task/loop stops competing for sockets and heap mid-transfer.
+  s_wm.setPreOtaUpdateCallback([]() {
+    s_ota_active = true;
+    Serial.println("OTA update starting — pausing network fetches");
+  });
+  s_wm.setCustomHeadElement(kPortalCss);
+  // Settings on their own "Setup" page (/param), not crammed under the Wi-Fi
+  // scan list — keeps each page small enough to build on the constrained heap.
+  static const char* kPortalMenu[] = {"wifi", "param", "info", "exit", "sep",
+                                      "update"};
+  s_wm.setMenu(kPortalMenu, 6);
   attachPortalParams(s_wm);
   s_wm_configured = true;
 }
@@ -388,7 +634,7 @@ void bootButtonPollLongPress() {
     const unsigned long down_ms = s_boot_down_ms;
     portEXIT_CRITICAL(&s_boot_mux);
 
-    if (!s_long_press_handled &&
+    if (!s_long_press_handled && !s_ota_active &&
         millis() - down_ms >= config::kBootResetHoldMs) {
       s_long_press_handled = true;
       Serial.println("BOOT held — resetting WiFi");
@@ -414,6 +660,8 @@ bool wifiReconnect() {
   Serial.println("WiFi reconnecting...");
   return connectSavedNetwork(true);
 }
+
+bool wifiOtaActive() { return s_ota_active; }
 
 void wifiLoop() {
   ensureWifiManager();

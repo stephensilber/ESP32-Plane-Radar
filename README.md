@@ -44,6 +44,14 @@ The same portal runs on the setup AP and on the device’s LAN IP while connecte
 | **Latitude / Longitude** | Radar center and ADS-B query position (defaults in `config.h` until set) |
 | **Display distances in miles** | Ring scale label in **mi** instead of **km** (e.g. `6mi` vs `10km`) |
 | **Show airport runways** | Major-airport runway overlay on the radar (off to hide) |
+| **Color aircraft by type** | Tint symbols by class — military (olive), commercial (red), private/GA (green) — instead of a single red (on by default) |
+| **Distinct helicopter icon** | Draw rotorcraft (ADS-B category A7) as a rotor glyph instead of a triangle (on by default) |
+| **Show flight route** | Fetch origin→destination airport codes for commercial flights from [adsb.lol](https://api.adsb.lol/) and show them beside the model (off by default) |
+| **Smooth motion** | Dead-reckon targets between polls so movement is continuous instead of stepping every ~3 s (on by default) |
+| **Show aircraft trails** | Draw a fading breadcrumb trail (~90 s) behind each aircraft, built up from live positions as you watch (off by default) |
+| **Performance mode** | Run ADS-B fetches and route lookups on a background FreeRTOS task so rendering, controls, and the portal never stall on network I/O (off by default; restart to apply) |
+| **Frame rate** | Render rate for smooth motion, 1–30 FPS (default 10); higher is smoother but works the CPU harder |
+| **Radar rotation** | Drag the compass so N points to real north relative to the top of the screen; rotates the grid, cardinal labels, and aircraft while text stays upright (0° by default) |
 
 After a reset, the device reboots and shows the setup screen immediately (no “Connecting” loop on stale credentials).
 
@@ -76,7 +84,9 @@ Preset and miles/km choice persist across reboot (`planeradar` NVS namespace).
 
 ### Aircraft
 
-- **Inside the outer ring** — red heading triangle, magenta speed vector (clipped at the ring), callsign / type / altitude tags
+- **Inside the outer ring** — heading triangle (rotor glyph for helicopters), magenta speed vector (clipped at the ring), callsign / type / altitude tags
+- **Symbol color** — single red, or by class (military / commercial / private) when *Color aircraft by type* is on
+- **Route** — with *Show flight route* on, commercial flights show `ORIG>DEST` (IATA) beside the model in a distinct color
 - **Outside the ring** (still within ADS-B fetch) — small **red dot on the screen rim** at the correct bearing (direction cue; not distance-accurate past the ring)
 - **Tags** — placed toward the **center**: west (left) → tag on the **right** of the symbol; east (right) → tag on the **left**
 

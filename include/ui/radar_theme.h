@@ -21,6 +21,9 @@ constexpr int kScaleGapFromOuterRing = 6;
 
 /** Target cap height (px) for N/S/E/W. */
 constexpr int kCardinalLabelHeightPx = 14;
+/** N/S/E/W sit on a ring this far inside the screen edge (px) so they can be
+ *  repositioned around the bezel when the radar is rotated. */
+constexpr int kCardinalRingInsetPx = 12;
 /** Scale label is this many px shorter than cardinals. */
 constexpr int kScaleBelowCardinalPx = 3;
 
@@ -30,6 +33,11 @@ constexpr int kRingCount = 4;
 constexpr float kGridStrokeHalfWidth = 1.0f;
 
 constexpr int kCenterDotRadius = 2;
+/** Soft light green for the center dot during a fetch — a subtle activity cue,
+ *  a slight shift from the white dot you only notice if you're watching. */
+constexpr uint8_t kFetchDotR = 150;
+constexpr uint8_t kFetchDotG = 255;
+constexpr uint8_t kFetchDotB = 170;
 
 /** Filled aircraft symbol (nose triangle). */
 constexpr int kAircraftNoseLenPx = 8;
@@ -61,6 +69,11 @@ constexpr int kBeyondRingDotRadiusPx = 4;
 constexpr int kBeyondRingScreenMarginPx = 2;
 /** Target cap height (px) for aircraft tags (bold, slightly above scale label). */
 constexpr int kAircraftTagLabelHeightPx = 13;
+/** Cap dead-reckoning extrapolation so stale data can't fling targets away. */
+constexpr float kAircraftMaxExtrapolateSec = 8.0f;
+/** Breadcrumb trail line half-width (~1.5px total) and oldest-segment dimness. */
+constexpr float kTrailLineHalfWidth = 0.75f;
+constexpr float kTrailMinBrightness = 0.18f;
 
 /** RGB565 palette targets (applied in initPalette). */
 constexpr uint8_t kBgR = 4;
@@ -72,6 +85,16 @@ constexpr uint8_t kGridB = 32;
 constexpr uint8_t kAircraftR = 255;
 constexpr uint8_t kAircraftG = 0;
 constexpr uint8_t kAircraftB = 0;
+/** Class colors (only used when "color by type" is enabled). */
+constexpr uint8_t kMilitaryR = 190;
+constexpr uint8_t kMilitaryG = 200;
+constexpr uint8_t kMilitaryB = 0;  // olive / yellow-green
+constexpr uint8_t kCommercialR = 255;
+constexpr uint8_t kCommercialG = 0;
+constexpr uint8_t kCommercialB = 0;  // red (matches default)
+constexpr uint8_t kPrivateR = 0;
+constexpr uint8_t kPrivateG = 220;
+constexpr uint8_t kPrivateB = 60;  // brighter than the grid green
 constexpr uint8_t kTrackR = 255;
 constexpr uint8_t kTrackG = 0;
 constexpr uint8_t kTrackB = 255;
@@ -81,6 +104,15 @@ constexpr uint8_t kTagTypeB = 0;
 constexpr uint8_t kTagAltR = 90;
 constexpr uint8_t kTagAltG = 200;
 constexpr uint8_t kTagAltB = 255;
+/** Origin→destination route codes, distinct from the amber type code. */
+constexpr uint8_t kTagRouteR = 120;
+constexpr uint8_t kTagRouteG = 255;
+constexpr uint8_t kTagRouteB = 160;
+
+/** Helicopter rotor glyph geometry. */
+constexpr int kHeliRotorLenPx = 8;
+constexpr int kHeliHubRadiusPx = 2;
+constexpr float kHeliBladeHalfWidth = 1.0f;
 constexpr uint8_t kRunwayR = 56;
 constexpr uint8_t kRunwayG = 150;
 constexpr uint8_t kRunwayB = 170;
@@ -93,10 +125,15 @@ extern uint16_t kColorBackground;
 extern uint16_t kColorGrid;
 extern uint16_t kColorLabel;
 extern uint16_t kColorCenter;
+extern uint16_t kColorFetchDot;  // center dot while a network fetch is in flight
 extern uint16_t kColorAircraft;
+extern uint16_t kColorMilitary;
+extern uint16_t kColorCommercial;
+extern uint16_t kColorPrivate;
 extern uint16_t kColorTrackVector;
 extern uint16_t kColorTagType;
 extern uint16_t kColorTagAltitude;
+extern uint16_t kColorTagRoute;
 extern uint16_t kColorRunway;
 extern uint16_t kColorRunwayLabel;
 

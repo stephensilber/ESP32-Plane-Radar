@@ -45,9 +45,48 @@ float fetchRadiusKm();
 
 bool useMiles();
 bool showRunways();
+bool colorByClass();
+bool heliIcon();
+bool showRoute();
+bool smoothMotion();
+bool showTrails();
+/** Tag bottom line shows ground speed (mph) instead of altitude. */
+bool showSpeed();
+/** At the widest range only, draw icons without tags (declutter). */
+bool iconsOnlyAtMaxZoom();
+/** Map filters by class/type (all default on; hidden aircraft aren't drawn). */
+bool showCommercial();
+bool showPrivate();
+bool showMilitary();
+bool showHelicopters();
+bool showPlanes();
+/** Performance mode: run network I/O on a background task (read at boot). */
+bool perfMode();
+/** Configured render rate (frames/sec) and the derived tick interval (ms). */
+int frameRateFps();
+unsigned long renderIntervalMs();
+/** Radar rotation (deg, 0-359): geographic bearing b is drawn at screen b+offset. */
+float headingOffsetDeg();
 /** WiFi portal checkbox: "T" = miles, otherwise km. */
 void saveMilesFromPortal(const char* checkbox_value);
 void saveRunwaysFromPortal(const char* checkbox_value);
+void saveColorByClassFromPortal(const char* checkbox_value);
+void saveHeliIconFromPortal(const char* checkbox_value);
+void saveShowRouteFromPortal(const char* checkbox_value);
+void saveSmoothMotionFromPortal(const char* checkbox_value);
+void saveTrailsFromPortal(const char* checkbox_value);
+void saveSpeedFromPortal(const char* checkbox_value);
+void saveIconsOnlyFromPortal(const char* checkbox_value);
+void saveShowCommercialFromPortal(const char* checkbox_value);
+void saveShowPrivateFromPortal(const char* checkbox_value);
+void saveShowMilitaryFromPortal(const char* checkbox_value);
+void saveShowHelicoptersFromPortal(const char* checkbox_value);
+void saveShowPlanesFromPortal(const char* checkbox_value);
+void savePerfModeFromPortal(const char* checkbox_value);
+/** Portal FPS field (as text); clamped to 1-30. */
+void saveFpsFromPortal(const char* value);
+/** Portal heading field (degrees as text); normalized to 0-359. */
+void saveHeadingFromPortal(const char* value);
 void formatRing3Label(char* buf, size_t len, float ring3_km, bool use_miles);
 void formatCurrentRing3Label(char* buf, size_t len);
 /** Reset distance units to km (e.g. with WiFi credential wipe). */

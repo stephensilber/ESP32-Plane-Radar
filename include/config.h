@@ -45,11 +45,15 @@ constexpr bool kDisplayInvert = true;
 constexpr bool kDisplayRgbOrder = true;
 
 // --- Radar center defaults (overridden via WiFi setup portal) ---
-constexpr double kDefaultRadarLat = 52.3676;
-constexpr double kDefaultRadarLon = 4.9041;
+constexpr double kDefaultRadarLat = 33.273735;
+constexpr double kDefaultRadarLon = -96.739407;
 
 /** Poll adsb.fi (API public limit: 1 req/s). */
 constexpr unsigned long kAdsbFetchIntervalMs = 3000;
+/** Resolve at most one flight route this often. Routes are static, so keeping
+ *  this well above the fetch interval spreads the blocking route lookups out so
+ *  they don't stall aircraft motion every cycle. */
+constexpr unsigned long kRouteLookupIntervalMs = 12000;
 /** Legacy scale unused — fetch uses radar::fetchRadiusKm() to screen edge. */
 constexpr float kAdsbFetchRadiusScale = 1.0f;
 /** false = hide aircraft with alt_baro "ground"; true = show them too. */

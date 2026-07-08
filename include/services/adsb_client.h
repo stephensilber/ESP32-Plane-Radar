@@ -1,8 +1,11 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 
 namespace services::adsb {
+
+enum class Class : uint8_t { Private = 0, Commercial = 1, Military = 2 };
 
 struct Aircraft {
   float lat;
@@ -13,12 +16,18 @@ struct Aircraft {
   char callsign[9];
   char type[5];
   char alt[12];
+  char hex[7];  // ICAO 24-bit address, stable identity across polls
+  Class klass;
+  bool is_rotor;
 };
 
 constexpr size_t kMaxAircraft = 64;
 
 size_t aircraftCount();
 const Aircraft* aircraftList();
+
+/** Seconds since the last successful fetch (for dead-reckoning between polls). */
+float secondsSinceUpdate();
 
 /** Hook invoked during long HTTP I/O (e.g. wifiLoop). Optional. */
 using PollFn = void (*)();

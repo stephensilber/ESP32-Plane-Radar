@@ -5,6 +5,7 @@
 
 #include <ArduinoJson.h>
 
+#include <cctype>
 #include <cstring>
 
 #include "config.h"
@@ -15,11 +16,22 @@ namespace {
 
 constexpr char kApiBase[] = "https://opendata.adsb.fi/api/v3/lat/";
 constexpr float kKmPerNm = 1.852f;
-constexpr int kConnectAttemptMs = 200;
-constexpr unsigned long kRequestTimeoutMs = 10000;
+// 200ms was too tight for a remote TLS connect from the C3; give it room but
+// still bound it so a failure can't freeze the render for long.
+constexpr int kConnectAttemptMs = 2000;
+constexpr unsigned long kRequestTimeoutMs = 4000;
+// One attempt per cycle: rapid retries only pile onto adsb.fi's 1 req/s limit
+// (and a DNS failure won't recover within a retry burst anyway). The next 3s
+// cycle is the retry.
+constexpr int kMaxConnectRetries = 1;
 
-Aircraft s_aircraft[kMaxAircraft];
-size_t s_aircraft_count = 0;
+// Double-buffered: the fetch (a background task in performance mode) fills the
+// inactive buffer, then publishes it by flipping s_active in a single write, so
+// the renderer always reads a complete, consistent snapshot.
+Aircraft s_aircraft[2][kMaxAircraft];
+size_t s_count[2] = {0, 0};
+unsigned long s_update_ms[2] = {0, 0};
+volatile uint8_t s_active = 0;
 PollFn s_poll_fn = nullptr;
 
 void pollNetwork() {
@@ -31,6 +43,7 @@ void pollNetwork() {
 int performGetWithPoll(HTTPClient& http) {
   http.setConnectTimeout(kConnectAttemptMs);
   const unsigned long deadline = millis() + kRequestTimeoutMs;
+  int attempts = 0;
   while (millis() < deadline) {
     pollNetwork();
     const int code = http.GET();
@@ -41,48 +54,14 @@ int performGetWithPoll(HTTPClient& http) {
         code != HTTPC_ERROR_NOT_CONNECTED) {
       return code;
     }
-    delay(5);
+    // Cap retries so a persistent failure (e.g. heap too low for TLS) doesn't
+    // spin hundreds of times spamming the log instead of failing this cycle.
+    if (++attempts >= kMaxConnectRetries) {
+      return code;
+    }
+    delay(150);
   }
   return HTTPC_ERROR_READ_TIMEOUT;
-}
-
-bool readResponseBodyWithPoll(HTTPClient& http, String& payload) {
-  WiFiClient* stream = http.getStreamPtr();
-  if (stream == nullptr) {
-    return false;
-  }
-
-  const int content_length = http.getSize();
-  if (content_length > 0) {
-    payload.reserve(static_cast<unsigned>(content_length + 1));
-  }
-
-  uint8_t buffer[512];
-  const unsigned long deadline = millis() + kRequestTimeoutMs;
-  while (millis() < deadline) {
-    pollNetwork();
-    const int available = stream->available();
-    if (available > 0) {
-      const int to_read =
-          available > static_cast<int>(sizeof(buffer)) ? static_cast<int>(sizeof(buffer))
-                                                       : available;
-      const int read_bytes = stream->readBytes(buffer, to_read);
-      if (read_bytes > 0) {
-        payload.concat(reinterpret_cast<const char*>(buffer),
-                       static_cast<unsigned>(read_bytes));
-      }
-    }
-    if (content_length > 0 &&
-        static_cast<int>(payload.length()) >= content_length) {
-      break;
-    }
-    if (!http.connected() && stream->available() <= 0) {
-      break;
-    }
-    delay(1);
-  }
-
-  return payload.length() > 0;
 }
 
 float kmToNauticalMiles(float km) { return km / kKmPerNm; }
@@ -187,7 +166,55 @@ void formatAltitudeTag(const JsonObject& plane, char* out, size_t out_len) {
   }
 }
 
+/** ICAO airline callsign: 3 letters + at least one digit (e.g. AAL3114). */
+bool isAirlineCallsign(const char* callsign) {
+  if (callsign[0] == '\0') {
+    return false;
+  }
+  for (int i = 0; i < 3; ++i) {
+    if (!isalpha(static_cast<unsigned char>(callsign[i]))) {
+      return false;
+    }
+  }
+  bool has_digit = false;
+  for (const char* p = callsign + 3; *p != '\0'; ++p) {
+    if (isdigit(static_cast<unsigned char>(*p))) {
+      has_digit = true;
+    }
+  }
+  return has_digit;
+}
+
+/**
+ * Best-effort class from what ADS-B exposes:
+ *   military — dbFlags bit 0 (authoritative);
+ *   commercial — airline-style callsign distinct from the tail number;
+ *   private — everything else (GA, tail-number callsigns, blanks).
+ */
+Class classifyAircraft(const JsonObject& plane, const char* callsign) {
+  float flags = 0.0f;
+  if (readJsonFloat(plane, "dbFlags", &flags) &&
+      (static_cast<int>(flags) & 1) != 0) {
+    return Class::Military;
+  }
+
+  char reg[9];
+  copyJsonStringTrimmed(plane, "r", reg, sizeof(reg));
+  if (isAirlineCallsign(callsign) &&
+      (reg[0] == '\0' || strcmp(callsign, reg) != 0)) {
+    return Class::Commercial;
+  }
+  return Class::Private;
+}
+
+bool isRotorcraft(const JsonObject& plane) {
+  return plane["category"].is<const char*>() &&
+         strcmp(plane["category"].as<const char*>(), "A7") == 0;
+}
+
 void fillTagFields(Aircraft* ac, const JsonObject& plane) {
+  copyJsonStringTrimmed(plane, "hex", ac->hex, sizeof(ac->hex));
+
   copyJsonStringTrimmed(plane, "flight", ac->callsign, sizeof(ac->callsign));
   if (ac->callsign[0] == '\0') {
     copyJsonStringTrimmed(plane, "hex", ac->callsign, sizeof(ac->callsign));
@@ -195,15 +222,18 @@ void fillTagFields(Aircraft* ac, const JsonObject& plane) {
 
   copyJsonStringTrimmed(plane, "t", ac->type, sizeof(ac->type));
   formatAltitudeTag(plane, ac->alt, sizeof(ac->alt));
+
+  ac->klass = classifyAircraft(plane, ac->callsign);
+  ac->is_rotor = isRotorcraft(plane);
 }
 
 }  // namespace
 
 void setPollFn(PollFn fn) { s_poll_fn = fn; }
 
-size_t aircraftCount() { return s_aircraft_count; }
+size_t aircraftCount() { return s_count[s_active]; }
 
-const Aircraft* aircraftList() { return s_aircraft; }
+const Aircraft* aircraftList() { return s_aircraft[s_active]; }
 
 bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
   const float dist_nm = kmToNauticalMiles(fetch_radius_km);
@@ -232,24 +262,41 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
     return false;
   }
 
-  String payload;
-  if (!readResponseBodyWithPoll(http, payload)) {
-    Serial.println("adsb: empty response");
-    http.end();
-    return false;
+  // Parse only the fields we use — the feed carries ~50 per aircraft, so the
+  // filter keeps the document small. Critically, we parse straight from the
+  // network stream rather than buffering the whole response into a String:
+  // at the widest zoom a 30-40KB body can't fit a contiguous heap block, which
+  // was truncating the read (InvalidInput / IncompleteInput). Streaming reads
+  // it incrementally and only retains the filtered fields.
+  JsonDocument filter;
+  static const char* const kFields[] = {
+      "lat",      "lon",      "true_heading", "mag_heading", "track",
+      "dir",      "gs",       "tas",          "ias",         "alt_baro",
+      "alt_geom", "hex",      "flight",       "t",           "dbFlags",
+      "r",        "category"};
+  for (const char* f : kFields) {
+    filter["ac"][0][f] = true;
   }
-  http.end();
 
+  WiFiClient* stream = http.getStreamPtr();
   JsonDocument doc;
-  const DeserializationError err = deserializeJson(doc, payload);
+  const DeserializationError err =
+      stream ? deserializeJson(doc, *stream,
+                               DeserializationOption::Filter(filter))
+             : DeserializationError(DeserializationError::EmptyInput);
+  http.end();
   if (err) {
     Serial.printf("adsb: JSON parse error: %s\n", err.c_str());
     return false;
   }
 
+  const uint8_t w = s_active ^ 1;  // fill the inactive buffer
+
   JsonArray ac = doc["ac"].as<JsonArray>();
   if (ac.isNull()) {
-    s_aircraft_count = 0;
+    s_count[w] = 0;
+    s_update_ms[w] = millis();
+    s_active = w;  // publish
     return true;
   }
 
@@ -265,18 +312,30 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
       continue;
     }
 
-    s_aircraft[n].lat = plane["lat"].as<float>();
-    s_aircraft[n].lon = plane["lon"].as<float>();
-    s_aircraft[n].nose_deg = pickNoseHeading(plane);
-    s_aircraft[n].track_deg = pickTrackHeading(plane);
-    s_aircraft[n].gs_knots = pickGroundSpeed(plane);
-    fillTagFields(&s_aircraft[n], plane);
+    s_aircraft[w][n].lat = plane["lat"].as<float>();
+    s_aircraft[w][n].lon = plane["lon"].as<float>();
+    s_aircraft[w][n].nose_deg = pickNoseHeading(plane);
+    s_aircraft[w][n].track_deg = pickTrackHeading(plane);
+    s_aircraft[w][n].gs_knots = pickGroundSpeed(plane);
+    fillTagFields(&s_aircraft[w][n], plane);
     ++n;
   }
 
-  s_aircraft_count = n;
-  Serial.printf("adsb: %u aircraft\n", static_cast<unsigned>(n));
+  s_count[w] = n;
+  s_update_ms[w] = millis();
+  s_active = w;  // publish the completed snapshot
+  Serial.printf("adsb: %u aircraft (freeHeap %u, maxAlloc %u)\n",
+                static_cast<unsigned>(n), ESP.getFreeHeap(),
+                ESP.getMaxAllocHeap());
   return true;
+}
+
+float secondsSinceUpdate() {
+  const unsigned long t = s_update_ms[s_active];
+  if (t == 0) {
+    return 0.0f;
+  }
+  return static_cast<float>(millis() - t) / 1000.0f;
 }
 
 }  // namespace services::adsb

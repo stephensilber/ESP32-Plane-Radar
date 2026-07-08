@@ -1,7 +1,11 @@
-# 4 MB flash — single large app (no OTA slot). Plane Radar + runway dataset.
+# 4 MB flash — dual app slots so OTA updates work.
+# Each ota slot is 1.875 MB, comfortably fitting the ~1.3 MB app + runway data.
+# NOTE: switching to this layout needs ONE serial flash of the merged image
+# (a partition-table change can't be applied over OTA). After that, OTA works.
 # Name,   Type, SubType, Offset,  Size, Flags
 nvs,      data, nvs,     0x9000,  0x5000,
 otadata,  data, ota,     0xe000,  0x2000,
-app0,     app,  ota_0,   0x10000, 0x300000,
-spiffs,   data, spiffs,  0x310000,0xE0000,
+app0,     app,  ota_0,   0x10000, 0x1E0000,
+app1,     app,  ota_1,   0x1F0000,0x1E0000,
+spiffs,   data, spiffs,  0x3D0000,0x20000,
 coredump, data, coredump,0x3F0000,0x10000,

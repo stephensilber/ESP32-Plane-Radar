@@ -11,7 +11,8 @@
 #include "hardware/display.h"
 #include "hardware/display_font.h"
 
-namespace fonts = lgfx::v1::fonts;
+// fonts::* glyphs resolve via LovyanGFX's global `fonts` namespace; a local
+// `namespace fonts = lgfx::v1::fonts;` alias collides with that shim.
 
 namespace {
 

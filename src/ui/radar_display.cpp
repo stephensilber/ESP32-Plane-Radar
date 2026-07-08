@@ -698,6 +698,18 @@ void sortBeyondDotsFarFirst(BeyondDotDrawItem* items, size_t count) {
   }
 }
 
+/** Map filters: an aircraft is drawn only if its class and its type
+ *  (rotorcraft vs fixed-wing) are both enabled. */
+bool aircraftVisible(const services::adsb::Aircraft& p) {
+  using services::adsb::Class;
+  if (p.klass == Class::Commercial && !ui::radar::showCommercial()) return false;
+  if (p.klass == Class::Private && !ui::radar::showPrivate()) return false;
+  if (p.klass == Class::Military && !ui::radar::showMilitary()) return false;
+  if (p.is_rotor && !ui::radar::showHelicopters()) return false;
+  if (!p.is_rotor && !ui::radar::showPlanes()) return false;
+  return true;
+}
+
 void drawAircraft() {
   initLabelMetrics();
 
@@ -713,6 +725,9 @@ void drawAircraft() {
       ui::radar::smoothMotion() ? services::adsb::secondsSinceUpdate() : 0.0f;
 
   for (size_t i = 0; i < n; ++i) {
+    if (!aircraftVisible(planes[i])) {
+      continue;
+    }
     float lat = 0.0f;
     float lon = 0.0f;
     extrapolatedLatLon(planes[i], age_s, &lat, &lon);

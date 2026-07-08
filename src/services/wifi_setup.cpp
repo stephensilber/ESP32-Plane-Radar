@@ -113,7 +113,7 @@ a.style.margin='16px auto';a.style.textAlign='center';
 m.parentNode.insertBefore(a,m.nextSibling);}
 document.querySelectorAll('h1,h3').forEach(function(h){if(h.textContent.trim()==='WiFiManager')h.textContent='Aircraft Radar';});
 var fo=document.getElementById('fpsout'),fi=document.getElementsByName('radar_fps')[0];if(fo&&fi)fo.textContent=fi.value;
-if(location.pathname==='/'){var box=document.createElement('div');box.className='links';box.innerHTML='<div class="links-h">Useful links</div><a href="https://web.esphome.io/" target="_blank" rel="noopener">ESP Web (logs, flash)</a>';document.body.appendChild(box);}});</script>)CSS";
+if(location.pathname==='/'){var box=document.createElement('div');box.className='links';box.innerHTML='<div class="links-h">Useful links</div><a href="https://web.esphome.io/" target="_blank" rel="noopener">ESP Web (logs, flash)</a><a href="https://adsb.lol/" target="_blank" rel="noopener">adsb.lol (feed &amp; routes)</a><a href="https://www.adsbdb.com/" target="_blank" rel="noopener">adsbdb (aircraft database)</a>';document.body.appendChild(box);}});</script>)CSS";
 
 WiFiManagerParameter s_param_back("<a href=\"/\" class=\"bk\">&#8592; Back</a>");
 
@@ -139,6 +139,25 @@ char s_icons_checkbox_attrs[32] = "type=\"checkbox\"";
 WiFiManagerParameter s_param_icons("icons_max",
                                    "Icons only at widest range (no labels)", "T",
                                    2, s_icons_checkbox_attrs, WFM_LABEL_AFTER);
+
+WiFiManagerParameter s_param_flt_hdr(
+    "<p style=\"margin:16px 0 2px;color:var(--dim);text-transform:uppercase;"
+    "letter-spacing:1px;font-size:12px\">Show on map</p>");
+char s_flt_com_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_flt_com("flt_com", "Commercial", "T", 2,
+                                     s_flt_com_attrs, WFM_LABEL_AFTER);
+char s_flt_priv_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_flt_priv("flt_priv", "Private", "T", 2,
+                                      s_flt_priv_attrs, WFM_LABEL_AFTER);
+char s_flt_mil_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_flt_mil("flt_mil", "Military", "T", 2,
+                                     s_flt_mil_attrs, WFM_LABEL_AFTER);
+char s_flt_heli_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_flt_heli("flt_heli", "Helicopters", "T", 2,
+                                      s_flt_heli_attrs, WFM_LABEL_AFTER);
+char s_flt_plane_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_flt_plane("flt_plane", "Planes", "T", 2,
+                                       s_flt_plane_attrs, WFM_LABEL_AFTER);
 
 char s_color_class_checkbox_attrs[32] = "type=\"checkbox\"";
 WiFiManagerParameter s_param_color_class("color_class",
@@ -233,6 +252,21 @@ void refreshPortalParamDefaults() {
            "type=\"checkbox\"%s",
            ui::radar::iconsOnlyAtMaxZoom() ? " checked" : "");
   s_param_icons.setValue("T", 2);
+  snprintf(s_flt_com_attrs, sizeof(s_flt_com_attrs), "type=\"checkbox\"%s",
+           ui::radar::showCommercial() ? " checked" : "");
+  s_param_flt_com.setValue("T", 2);
+  snprintf(s_flt_priv_attrs, sizeof(s_flt_priv_attrs), "type=\"checkbox\"%s",
+           ui::radar::showPrivate() ? " checked" : "");
+  s_param_flt_priv.setValue("T", 2);
+  snprintf(s_flt_mil_attrs, sizeof(s_flt_mil_attrs), "type=\"checkbox\"%s",
+           ui::radar::showMilitary() ? " checked" : "");
+  s_param_flt_mil.setValue("T", 2);
+  snprintf(s_flt_heli_attrs, sizeof(s_flt_heli_attrs), "type=\"checkbox\"%s",
+           ui::radar::showHelicopters() ? " checked" : "");
+  s_param_flt_heli.setValue("T", 2);
+  snprintf(s_flt_plane_attrs, sizeof(s_flt_plane_attrs), "type=\"checkbox\"%s",
+           ui::radar::showPlanes() ? " checked" : "");
+  s_param_flt_plane.setValue("T", 2);
   snprintf(s_color_class_checkbox_attrs, sizeof(s_color_class_checkbox_attrs),
            "type=\"checkbox\"%s", ui::radar::colorByClass() ? " checked" : "");
   s_param_color_class.setValue("T", 2);
@@ -269,6 +303,11 @@ void onPortalParamsSaved() {
   ui::radar::saveRunwaysFromPortal(s_param_runways.getValue());
   ui::radar::saveSpeedFromPortal(s_param_speed.getValue());
   ui::radar::saveIconsOnlyFromPortal(s_param_icons.getValue());
+  ui::radar::saveShowCommercialFromPortal(s_param_flt_com.getValue());
+  ui::radar::saveShowPrivateFromPortal(s_param_flt_priv.getValue());
+  ui::radar::saveShowMilitaryFromPortal(s_param_flt_mil.getValue());
+  ui::radar::saveShowHelicoptersFromPortal(s_param_flt_heli.getValue());
+  ui::radar::saveShowPlanesFromPortal(s_param_flt_plane.getValue());
   ui::radar::saveColorByClassFromPortal(s_param_color_class.getValue());
   ui::radar::saveHeliIconFromPortal(s_param_heli_icon.getValue());
   ui::radar::saveShowRouteFromPortal(s_param_show_route.getValue());
@@ -291,6 +330,12 @@ void attachPortalParams(WiFiManager& wm) {
   wm.addParameter(&s_param_runways);
   wm.addParameter(&s_param_speed);
   wm.addParameter(&s_param_icons);
+  wm.addParameter(&s_param_flt_hdr);
+  wm.addParameter(&s_param_flt_com);
+  wm.addParameter(&s_param_flt_priv);
+  wm.addParameter(&s_param_flt_mil);
+  wm.addParameter(&s_param_flt_heli);
+  wm.addParameter(&s_param_flt_plane);
   wm.addParameter(&s_param_color_class);
   wm.addParameter(&s_param_heli_icon);
   wm.addParameter(&s_param_show_route);

@@ -23,6 +23,11 @@ constexpr char kPrefsSmoothKey[] = "smoothMot";
 constexpr char kPrefsTrailsKey[] = "trails";
 constexpr char kPrefsSpeedKey[] = "showSpeed";
 constexpr char kPrefsIconsMaxKey[] = "iconsMax";
+constexpr char kPrefsFltComKey[] = "fltCom";
+constexpr char kPrefsFltPrivKey[] = "fltPriv";
+constexpr char kPrefsFltMilKey[] = "fltMil";
+constexpr char kPrefsFltHeliKey[] = "fltHeli";
+constexpr char kPrefsFltPlaneKey[] = "fltPlane";
 constexpr char kPrefsPerfKey[] = "perfMode";
 constexpr char kPrefsHeadingKey[] = "hdgOffset";
 constexpr char kPrefsFpsKey[] = "fps";
@@ -43,6 +48,11 @@ bool s_smooth_motion = true;
 bool s_show_trails = false;
 bool s_show_speed = false;
 bool s_icons_only_max = false;
+bool s_flt_com = true;
+bool s_flt_priv = true;
+bool s_flt_mil = true;
+bool s_flt_heli = true;
+bool s_flt_plane = true;
 bool s_perf_mode = false;
 int16_t s_heading_offset = 0;
 int16_t s_fps = kDefaultFps;
@@ -109,6 +119,11 @@ void rangeInit() {
   s_show_trails = s_prefs.getBool(kPrefsTrailsKey, true);
   s_show_speed = s_prefs.getBool(kPrefsSpeedKey, true);
   s_icons_only_max = s_prefs.getBool(kPrefsIconsMaxKey, true);
+  s_flt_com = s_prefs.getBool(kPrefsFltComKey, true);
+  s_flt_priv = s_prefs.getBool(kPrefsFltPrivKey, true);
+  s_flt_mil = s_prefs.getBool(kPrefsFltMilKey, true);
+  s_flt_heli = s_prefs.getBool(kPrefsFltHeliKey, true);
+  s_flt_plane = s_prefs.getBool(kPrefsFltPlaneKey, true);
   // Perf mode default-on for a smooth out-of-box experience; xTaskCreate has a
   // single-loop fallback if the task can't be spawned.
   s_perf_mode = s_prefs.getBool(kPrefsPerfKey, true);
@@ -153,6 +168,12 @@ bool showTrails() { return s_show_trails; }
 bool showSpeed() { return s_show_speed; }
 
 bool iconsOnlyAtMaxZoom() { return s_icons_only_max; }
+
+bool showCommercial() { return s_flt_com; }
+bool showPrivate() { return s_flt_priv; }
+bool showMilitary() { return s_flt_mil; }
+bool showHelicopters() { return s_flt_heli; }
+bool showPlanes() { return s_flt_plane; }
 
 bool perfMode() { return s_perf_mode; }
 
@@ -218,6 +239,31 @@ void saveIconsOnlyFromPortal(const char* checkbox_value) {
   Serial.printf("Icons-only at max zoom: %s\n", s_icons_only_max ? "on" : "off");
 }
 
+void saveShowCommercialFromPortal(const char* v) {
+  s_flt_com = portalCheckboxChecked(v);
+  saveBoolPref(kPrefsFltComKey, s_flt_com);
+}
+
+void saveShowPrivateFromPortal(const char* v) {
+  s_flt_priv = portalCheckboxChecked(v);
+  saveBoolPref(kPrefsFltPrivKey, s_flt_priv);
+}
+
+void saveShowMilitaryFromPortal(const char* v) {
+  s_flt_mil = portalCheckboxChecked(v);
+  saveBoolPref(kPrefsFltMilKey, s_flt_mil);
+}
+
+void saveShowHelicoptersFromPortal(const char* v) {
+  s_flt_heli = portalCheckboxChecked(v);
+  saveBoolPref(kPrefsFltHeliKey, s_flt_heli);
+}
+
+void saveShowPlanesFromPortal(const char* v) {
+  s_flt_plane = portalCheckboxChecked(v);
+  saveBoolPref(kPrefsFltPlaneKey, s_flt_plane);
+}
+
 void savePerfModeFromPortal(const char* checkbox_value) {
   s_perf_mode = portalCheckboxChecked(checkbox_value);
   saveBoolPref(kPrefsPerfKey, s_perf_mode);
@@ -272,6 +318,11 @@ void unitsReset() {
   s_show_trails = true;
   s_show_speed = true;
   s_icons_only_max = true;
+  s_flt_com = true;
+  s_flt_priv = true;
+  s_flt_mil = true;
+  s_flt_heli = true;
+  s_flt_plane = true;
   s_perf_mode = true;
   s_heading_offset = 0;
   s_fps = kDefaultFps;
@@ -285,6 +336,11 @@ void unitsReset() {
     s_prefs.remove(kPrefsTrailsKey);
     s_prefs.remove(kPrefsSpeedKey);
     s_prefs.remove(kPrefsIconsMaxKey);
+    s_prefs.remove(kPrefsFltComKey);
+    s_prefs.remove(kPrefsFltPrivKey);
+    s_prefs.remove(kPrefsFltMilKey);
+    s_prefs.remove(kPrefsFltHeliKey);
+    s_prefs.remove(kPrefsFltPlaneKey);
     s_prefs.remove(kPrefsPerfKey);
     s_prefs.remove(kPrefsHeadingKey);
     s_prefs.remove(kPrefsFpsKey);

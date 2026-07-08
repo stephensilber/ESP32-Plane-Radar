@@ -97,6 +97,10 @@ a{color:var(--acc)}
 .cmp-rose .e{right:10px;top:50%;margin-top:-8px}
 .cmp-rose .w{left:10px;top:50%;margin-top:-8px}
 .cmp-val{margin-top:8px;font-size:13px}
+input[type=range]{width:100%;accent-color:var(--acc);margin:8px 0}
+.links{margin:24px auto 8px;max-width:360px;text-align:center}
+.links-h{color:var(--dim);text-transform:uppercase;letter-spacing:2px;font-size:11px;margin-bottom:6px}
+.links a{color:var(--acc);display:block;padding:5px 0;font-size:13px}
 </style>
 <script>document.addEventListener('DOMContentLoaded',function(){
 document.querySelectorAll("form[action='/param'] button").forEach(function(b){
@@ -107,7 +111,9 @@ var a=document.createElement('a');a.href='/param';a.className='bk';
 a.textContent='← Back to Options';a.style.display='block';a.style.maxWidth='360px';
 a.style.margin='16px auto';a.style.textAlign='center';
 m.parentNode.insertBefore(a,m.nextSibling);}
-if(location.pathname==='/'){var e=document.createElement('a');e.href='https://web.esphome.io/';e.target='_blank';e.rel='noopener';e.className='bk';e.textContent='Firmware flash tool (web.esphome.io)';e.style.display='block';e.style.maxWidth='360px';e.style.margin='16px auto';e.style.textAlign='center';document.body.appendChild(e);}});</script>)CSS";
+document.querySelectorAll('h1,h3').forEach(function(h){if(h.textContent.trim()==='WiFiManager')h.textContent='Aircraft Radar';});
+var fo=document.getElementById('fpsout'),fi=document.getElementsByName('radar_fps')[0];if(fo&&fi)fo.textContent=fi.value;
+if(location.pathname==='/'){var box=document.createElement('div');box.className='links';box.innerHTML='<div class="links-h">Useful links</div><a href="https://web.esphome.io/" target="_blank" rel="noopener">ESP Web (logs, flash)</a>';document.body.appendChild(box);}});</script>)CSS";
 
 WiFiManagerParameter s_param_back("<a href=\"/\" class=\"bk\">&#8592; Back</a>");
 
@@ -168,8 +174,10 @@ WiFiManagerParameter s_param_perf("perf_mode",
 // A checkbox (label-after) sits right before this numeric field (label-before),
 // so their labels collide on one line without a break between them.
 WiFiManagerParameter s_param_spacer("<br>");
-WiFiManagerParameter s_param_fps("radar_fps", "Frame rate (FPS, 1-30)", "10", 4,
-                                 " type=\"number\" min=\"1\" max=\"30\" step=\"1\"");
+WiFiManagerParameter s_param_fps(
+    "radar_fps", "Frame rate: <b id=\"fpsout\">12</b> FPS", "12", 4,
+    " type=\"range\" min=\"1\" max=\"30\" step=\"1\""
+    " oninput=\"var o=document.getElementById('fpsout');if(o)o.textContent=this.value\"");
 
 // Interactive radar-rotation compass. Drag the rose so N points to real north
 // relative to the top of the screen; the chosen offset is written into the
@@ -402,6 +410,7 @@ void ensureWifiManager() {
   s_wm.setAPStaticIPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1),
                            IPAddress(255, 255, 255, 0));
   s_wm.setHostname(config::kPortalHostname);
+  s_wm.setTitle("Aircraft Radar");
   s_wm.setAPCallback(onConfigPortalApStarted);
   // An OTA upload needs the whole radio to itself; latch a flag when it starts
   // so the fetch task/loop stops competing for sockets and heap mid-transfer.

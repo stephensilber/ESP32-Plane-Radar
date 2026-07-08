@@ -26,7 +26,7 @@ constexpr char kPrefsIconsMaxKey[] = "iconsMax";
 constexpr char kPrefsPerfKey[] = "perfMode";
 constexpr char kPrefsHeadingKey[] = "hdgOffset";
 constexpr char kPrefsFpsKey[] = "fps";
-constexpr int kDefaultFps = 10;
+constexpr int kDefaultFps = 12;
 constexpr int kMinFps = 1;
 constexpr int kMaxFps = 30;
 constexpr uint8_t kDefaultRangeIndex = 1;  // 10 km ring
@@ -104,11 +104,13 @@ void rangeInit() {
   s_show_runways = s_prefs.getBool(kPrefsRunwaysKey, true);
   s_color_by_class = s_prefs.getBool(kPrefsColorClassKey, true);
   s_heli_icon = s_prefs.getBool(kPrefsHeliIconKey, true);
-  s_show_route = s_prefs.getBool(kPrefsShowRouteKey, false);
+  s_show_route = s_prefs.getBool(kPrefsShowRouteKey, true);
   s_smooth_motion = s_prefs.getBool(kPrefsSmoothKey, true);
-  s_show_trails = s_prefs.getBool(kPrefsTrailsKey, false);
-  s_show_speed = s_prefs.getBool(kPrefsSpeedKey, false);
-  s_icons_only_max = s_prefs.getBool(kPrefsIconsMaxKey, false);
+  s_show_trails = s_prefs.getBool(kPrefsTrailsKey, true);
+  s_show_speed = s_prefs.getBool(kPrefsSpeedKey, true);
+  s_icons_only_max = s_prefs.getBool(kPrefsIconsMaxKey, true);
+  // Perf mode stays default-off: it's restart-to-apply and spawns a task, so a
+  // settings wipe should land back in the safe single-loop mode.
   s_perf_mode = s_prefs.getBool(kPrefsPerfKey, false);
   s_heading_offset = s_prefs.getShort(kPrefsHeadingKey, 0);
   s_fps = s_prefs.getShort(kPrefsFpsKey, kDefaultFps);
@@ -265,11 +267,11 @@ void unitsReset() {
   s_show_runways = true;
   s_color_by_class = true;
   s_heli_icon = true;
-  s_show_route = false;
+  s_show_route = true;
   s_smooth_motion = true;
-  s_show_trails = false;
-  s_show_speed = false;
-  s_icons_only_max = false;
+  s_show_trails = true;
+  s_show_speed = true;
+  s_icons_only_max = true;
   s_perf_mode = false;
   s_heading_offset = 0;
   s_fps = kDefaultFps;

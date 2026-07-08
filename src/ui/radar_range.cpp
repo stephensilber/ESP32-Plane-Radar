@@ -109,9 +109,9 @@ void rangeInit() {
   s_show_trails = s_prefs.getBool(kPrefsTrailsKey, true);
   s_show_speed = s_prefs.getBool(kPrefsSpeedKey, true);
   s_icons_only_max = s_prefs.getBool(kPrefsIconsMaxKey, true);
-  // Perf mode stays default-off: it's restart-to-apply and spawns a task, so a
-  // settings wipe should land back in the safe single-loop mode.
-  s_perf_mode = s_prefs.getBool(kPrefsPerfKey, false);
+  // Perf mode default-on for a smooth out-of-box experience; xTaskCreate has a
+  // single-loop fallback if the task can't be spawned.
+  s_perf_mode = s_prefs.getBool(kPrefsPerfKey, true);
   s_heading_offset = s_prefs.getShort(kPrefsHeadingKey, 0);
   s_fps = s_prefs.getShort(kPrefsFpsKey, kDefaultFps);
   if (s_fps < kMinFps || s_fps > kMaxFps) {
@@ -272,7 +272,7 @@ void unitsReset() {
   s_show_trails = true;
   s_show_speed = true;
   s_icons_only_max = true;
-  s_perf_mode = false;
+  s_perf_mode = true;
   s_heading_offset = 0;
   s_fps = kDefaultFps;
   if (s_prefs.begin(kPrefsNamespace, false)) {

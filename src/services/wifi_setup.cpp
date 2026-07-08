@@ -84,14 +84,14 @@ input[type=text],input[type=password],input[type=number],select{width:100%;color
 input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 9px rgba(0,230,118,.45)}
 input[type=checkbox]{accent-color:var(--acc);transform:scale(1.25);margin:8px 8px 8px 0}
 a{color:var(--acc)}
-.bk{display:inline-block;margin:0 0 14px;padding:8px 14px;border:1px solid var(--dim);border-radius:6px;text-transform:uppercase;letter-spacing:1px;font-weight:700}
+.bk{display:block;width:fit-content;margin:0 0 18px;padding:8px 14px;border:1px solid var(--dim);border-radius:6px;text-transform:uppercase;letter-spacing:1px;font-weight:700}
 .cmp{margin:16px auto;text-align:center}
 .cmp-up{color:var(--amber);font-weight:700;font-size:12px;margin-bottom:6px}
 .cmp-dial{position:relative;width:170px;height:170px;margin:0 auto;border-radius:50%;border:2px solid var(--acc);background:radial-gradient(circle,#031f12,#010a06);box-shadow:0 0 14px rgba(0,230,118,.3),inset 0 0 16px rgba(0,230,118,.1);touch-action:none;cursor:grab;user-select:none}
-.cmp-tick{position:absolute;top:-9px;left:50%;margin-left:-6px;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid var(--amber)}
+.cmp-tick{position:absolute;top:4px;left:50%;margin-left:-5px;border-left:5px solid transparent;border-right:5px solid transparent;border-top:9px solid var(--amber)}
 .cmp-rose{position:absolute;inset:0}
 .cmp-rose b{position:absolute;font-weight:700;font-size:15px}
-.cmp-rose .n{top:16px;left:50%;margin-left:-5px;color:var(--amber)}
+.cmp-rose .n{top:20px;left:50%;margin-left:-5px;color:var(--amber)}
 .cmp-rose .s{bottom:16px;left:50%;margin-left:-5px}
 .cmp-rose .e{right:10px;top:50%;margin-top:-8px}
 .cmp-rose .w{left:10px;top:50%;margin-top:-8px}

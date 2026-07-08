@@ -248,6 +248,9 @@ void onPortalParamsSaved() {
   ui::radar::savePerfModeFromPortal(s_param_perf.getValue());
   ui::radar::saveFpsFromPortal(s_param_fps.getValue());
   ui::radar::saveHeadingFromPortal(s_param_heading.getValue());
+  // Rebuild the checkbox "checked" / field defaults so the Options page reflects
+  // what was just saved instead of the stale portal-start state.
+  refreshPortalParamDefaults();
 }
 
 void attachPortalParams(WiFiManager& wm) {

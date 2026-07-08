@@ -54,10 +54,6 @@ constexpr unsigned long kAdsbFetchIntervalMs = 3000;
  *  this well above the fetch interval spreads the blocking route lookups out so
  *  they don't stall aircraft motion every cycle. */
 constexpr unsigned long kRouteLookupIntervalMs = 12000;
-/** Performance mode: skip a background fetch/lookup if the largest free heap
- *  block is below this, so its ~32KB TLS alloc doesn't collide with the portal
- *  building a page (which would starve both). */
-constexpr uint32_t kNetHeapFloorBytes = 45000;
 /** Legacy scale unused — fetch uses radar::fetchRadiusKm() to screen edge. */
 constexpr float kAdsbFetchRadiusScale = 1.0f;
 /** false = hide aircraft with alt_baro "ground"; true = show them too. */

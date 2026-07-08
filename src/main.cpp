@@ -116,10 +116,7 @@ void perfNetTask(void*) {
   unsigned long last_fetch = 0;
   unsigned long last_route = 0;
   for (;;) {
-    // Defer network work (its ~32KB TLS alloc) while the heap is tight — e.g.
-    // the portal is mid-page-build — so the two don't collide and blank it.
-    if (WiFi.status() == WL_CONNECTED &&
-        ESP.getMaxAllocHeap() > config::kNetHeapFloorBytes) {
+    if (WiFi.status() == WL_CONNECTED) {
       const unsigned long now = millis();
       if (now - last_fetch >= config::kAdsbFetchIntervalMs) {
         last_fetch = now;

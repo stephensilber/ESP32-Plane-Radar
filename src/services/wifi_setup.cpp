@@ -105,7 +105,8 @@ var m=document.querySelector('.msg')||document.body;
 var a=document.createElement('a');a.href='/param';a.className='bk';
 a.textContent='← Back to Options';a.style.display='block';a.style.maxWidth='360px';
 a.style.margin='16px auto';a.style.textAlign='center';
-m.parentNode.insertBefore(a,m.nextSibling);}});</script>)CSS";
+m.parentNode.insertBefore(a,m.nextSibling);}
+if(location.pathname==='/'){var e=document.createElement('a');e.href='https://web.esphome.io/';e.target='_blank';e.rel='noopener';e.className='bk';e.textContent='Firmware flash tool (web.esphome.io)';e.style.display='block';e.style.maxWidth='360px';e.style.margin='16px auto';e.style.textAlign='center';document.body.appendChild(e);}});</script>)CSS";
 
 WiFiManagerParameter s_param_back("<a href=\"/\" class=\"bk\">&#8592; Back</a>");
 

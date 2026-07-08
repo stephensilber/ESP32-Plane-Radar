@@ -16,10 +16,14 @@ namespace {
 
 constexpr char kApiBase[] = "https://opendata.adsb.fi/api/v3/lat/";
 constexpr float kKmPerNm = 1.852f;
-constexpr int kConnectAttemptMs = 200;
-// Kept tight so a slow/hung fetch can't freeze the single-loop render for long.
+// 200ms was too tight for a remote TLS connect from the C3; give it room but
+// still bound it so a failure can't freeze the render for long.
+constexpr int kConnectAttemptMs = 2000;
 constexpr unsigned long kRequestTimeoutMs = 4000;
-constexpr int kMaxConnectRetries = 3;
+// One attempt per cycle: rapid retries only pile onto adsb.fi's 1 req/s limit
+// (and a DNS failure won't recover within a retry burst anyway). The next 3s
+// cycle is the retry.
+constexpr int kMaxConnectRetries = 1;
 
 // Double-buffered: the fetch (a background task in performance mode) fills the
 // inactive buffer, then publishes it by flipping s_active in a single write, so

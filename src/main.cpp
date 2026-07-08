@@ -53,15 +53,25 @@ void handleBootButton() {
   }
 }
 
-/** Queue routes for the commercial aircraft in the current fetch. */
+/** Queue routes only for commercial aircraft inside the ring — beyond-ring
+ *  targets are just dots with no tag, so their route is never shown. */
 void noteVisibleRoutes() {
   const size_t n = services::adsb::aircraftCount();
   const services::adsb::Aircraft* planes = services::adsb::aircraftList();
+  const double clat = services::location::lat();
+  const double clon = services::location::lon();
+  const float outer_km = ui::radar::rangeCurrent().outer_km;
   for (size_t i = 0; i < n; ++i) {
-    if (planes[i].klass == services::adsb::Class::Commercial) {
-      services::route::note(planes[i].callsign, planes[i].lat, planes[i].lon,
-                            planes[i].track_deg);
+    if (planes[i].klass != services::adsb::Class::Commercial) {
+      continue;
     }
+    const float dx = static_cast<float>(planes[i].lon - clon) * 111.0f;
+    const float dy = static_cast<float>(planes[i].lat - clat) * 111.0f;
+    if (dx * dx + dy * dy > outer_km * outer_km) {
+      continue;  // beyond the ring — no tag, so no route needed.
+    }
+    services::route::note(planes[i].callsign, planes[i].lat, planes[i].lon,
+                          planes[i].track_deg);
   }
 }
 

@@ -22,7 +22,7 @@ constexpr char kPrefsShowRouteKey[] = "showRoute";
 constexpr char kPrefsSmoothKey[] = "smoothMot";
 constexpr char kPrefsTrailsKey[] = "trails";
 constexpr char kPrefsSpeedKey[] = "showSpeed";
-constexpr char kPrefsSim8Key[] = "sim8bit";
+constexpr char kPrefsIconsMaxKey[] = "iconsMax";
 constexpr char kPrefsPerfKey[] = "perfMode";
 constexpr char kPrefsHeadingKey[] = "hdgOffset";
 constexpr char kPrefsFpsKey[] = "fps";
@@ -42,7 +42,7 @@ bool s_show_route = false;
 bool s_smooth_motion = true;
 bool s_show_trails = false;
 bool s_show_speed = false;
-bool s_sim_8bit = false;
+bool s_icons_only_max = false;
 bool s_perf_mode = false;
 int16_t s_heading_offset = 0;
 int16_t s_fps = kDefaultFps;
@@ -108,7 +108,7 @@ void rangeInit() {
   s_smooth_motion = s_prefs.getBool(kPrefsSmoothKey, true);
   s_show_trails = s_prefs.getBool(kPrefsTrailsKey, false);
   s_show_speed = s_prefs.getBool(kPrefsSpeedKey, false);
-  s_sim_8bit = s_prefs.getBool(kPrefsSim8Key, false);
+  s_icons_only_max = s_prefs.getBool(kPrefsIconsMaxKey, false);
   s_perf_mode = s_prefs.getBool(kPrefsPerfKey, false);
   s_heading_offset = s_prefs.getShort(kPrefsHeadingKey, 0);
   s_fps = s_prefs.getShort(kPrefsFpsKey, kDefaultFps);
@@ -150,7 +150,7 @@ bool showTrails() { return s_show_trails; }
 
 bool showSpeed() { return s_show_speed; }
 
-bool sim8bit() { return s_sim_8bit; }
+bool iconsOnlyAtMaxZoom() { return s_icons_only_max; }
 
 bool perfMode() { return s_perf_mode; }
 
@@ -210,10 +210,10 @@ void saveSpeedFromPortal(const char* checkbox_value) {
   Serial.printf("Tag metric: %s\n", s_show_speed ? "speed" : "altitude");
 }
 
-void saveSim8bitFromPortal(const char* checkbox_value) {
-  s_sim_8bit = portalCheckboxChecked(checkbox_value);
-  saveBoolPref(kPrefsSim8Key, s_sim_8bit);
-  Serial.printf("Simulate 8-bit: %s\n", s_sim_8bit ? "on" : "off");
+void saveIconsOnlyFromPortal(const char* checkbox_value) {
+  s_icons_only_max = portalCheckboxChecked(checkbox_value);
+  saveBoolPref(kPrefsIconsMaxKey, s_icons_only_max);
+  Serial.printf("Icons-only at max zoom: %s\n", s_icons_only_max ? "on" : "off");
 }
 
 void savePerfModeFromPortal(const char* checkbox_value) {
@@ -269,7 +269,7 @@ void unitsReset() {
   s_smooth_motion = true;
   s_show_trails = false;
   s_show_speed = false;
-  s_sim_8bit = false;
+  s_icons_only_max = false;
   s_perf_mode = false;
   s_heading_offset = 0;
   s_fps = kDefaultFps;
@@ -282,7 +282,7 @@ void unitsReset() {
     s_prefs.remove(kPrefsSmoothKey);
     s_prefs.remove(kPrefsTrailsKey);
     s_prefs.remove(kPrefsSpeedKey);
-    s_prefs.remove(kPrefsSim8Key);
+    s_prefs.remove(kPrefsIconsMaxKey);
     s_prefs.remove(kPrefsPerfKey);
     s_prefs.remove(kPrefsHeadingKey);
     s_prefs.remove(kPrefsFpsKey);

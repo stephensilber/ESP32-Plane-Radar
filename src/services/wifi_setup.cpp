@@ -127,10 +127,10 @@ WiFiManagerParameter s_param_speed("show_speed",
                                    "Tag shows speed (mph) not altitude", "T", 2,
                                    s_speed_checkbox_attrs, WFM_LABEL_AFTER);
 
-char s_sim8_checkbox_attrs[32] = "type=\"checkbox\"";
-WiFiManagerParameter s_param_sim8("sim_8bit",
-                                  "Preview 8-bit color (256 colors)", "T", 2,
-                                  s_sim8_checkbox_attrs, WFM_LABEL_AFTER);
+char s_icons_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_icons("icons_max",
+                                   "Icons only at widest range (no labels)", "T",
+                                   2, s_icons_checkbox_attrs, WFM_LABEL_AFTER);
 
 char s_color_class_checkbox_attrs[32] = "type=\"checkbox\"";
 WiFiManagerParameter s_param_color_class("color_class",
@@ -219,9 +219,10 @@ void refreshPortalParamDefaults() {
   snprintf(s_speed_checkbox_attrs, sizeof(s_speed_checkbox_attrs),
            "type=\"checkbox\"%s", ui::radar::showSpeed() ? " checked" : "");
   s_param_speed.setValue("T", 2);
-  snprintf(s_sim8_checkbox_attrs, sizeof(s_sim8_checkbox_attrs),
-           "type=\"checkbox\"%s", ui::radar::sim8bit() ? " checked" : "");
-  s_param_sim8.setValue("T", 2);
+  snprintf(s_icons_checkbox_attrs, sizeof(s_icons_checkbox_attrs),
+           "type=\"checkbox\"%s",
+           ui::radar::iconsOnlyAtMaxZoom() ? " checked" : "");
+  s_param_icons.setValue("T", 2);
   snprintf(s_color_class_checkbox_attrs, sizeof(s_color_class_checkbox_attrs),
            "type=\"checkbox\"%s", ui::radar::colorByClass() ? " checked" : "");
   s_param_color_class.setValue("T", 2);
@@ -257,7 +258,7 @@ void onPortalParamsSaved() {
   ui::radar::saveMilesFromPortal(s_param_miles.getValue());
   ui::radar::saveRunwaysFromPortal(s_param_runways.getValue());
   ui::radar::saveSpeedFromPortal(s_param_speed.getValue());
-  ui::radar::saveSim8bitFromPortal(s_param_sim8.getValue());
+  ui::radar::saveIconsOnlyFromPortal(s_param_icons.getValue());
   ui::radar::saveColorByClassFromPortal(s_param_color_class.getValue());
   ui::radar::saveHeliIconFromPortal(s_param_heli_icon.getValue());
   ui::radar::saveShowRouteFromPortal(s_param_show_route.getValue());
@@ -279,7 +280,7 @@ void attachPortalParams(WiFiManager& wm) {
   wm.addParameter(&s_param_miles);
   wm.addParameter(&s_param_runways);
   wm.addParameter(&s_param_speed);
-  wm.addParameter(&s_param_sim8);
+  wm.addParameter(&s_param_icons);
   wm.addParameter(&s_param_color_class);
   wm.addParameter(&s_param_heli_icon);
   wm.addParameter(&s_param_show_route);

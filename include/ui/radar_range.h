@@ -52,8 +52,8 @@ bool smoothMotion();
 bool showTrails();
 /** Tag bottom line shows ground speed (mph) instead of altitude. */
 bool showSpeed();
-/** Preview: quantize the rendered frame to an 8-bit (RGB332) palette. */
-bool sim8bit();
+/** At the widest range only, draw icons without tags (declutter). */
+bool iconsOnlyAtMaxZoom();
 /** Performance mode: run network I/O on a background task (read at boot). */
 bool perfMode();
 /** Configured render rate (frames/sec) and the derived tick interval (ms). */
@@ -70,7 +70,7 @@ void saveShowRouteFromPortal(const char* checkbox_value);
 void saveSmoothMotionFromPortal(const char* checkbox_value);
 void saveTrailsFromPortal(const char* checkbox_value);
 void saveSpeedFromPortal(const char* checkbox_value);
-void saveSim8bitFromPortal(const char* checkbox_value);
+void saveIconsOnlyFromPortal(const char* checkbox_value);
 void savePerfModeFromPortal(const char* checkbox_value);
 /** Portal FPS field (as text); clamped to 1-30. */
 void saveFpsFromPortal(const char* value);

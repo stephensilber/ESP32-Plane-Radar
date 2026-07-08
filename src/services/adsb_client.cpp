@@ -19,6 +19,7 @@ constexpr float kKmPerNm = 1.852f;
 constexpr int kConnectAttemptMs = 200;
 // Kept tight so a slow/hung fetch can't freeze the single-loop render for long.
 constexpr unsigned long kRequestTimeoutMs = 4000;
+constexpr int kMaxConnectRetries = 3;
 
 // Double-buffered: the fetch (a background task in performance mode) fills the
 // inactive buffer, then publishes it by flipping s_active in a single write, so
@@ -38,6 +39,7 @@ void pollNetwork() {
 int performGetWithPoll(HTTPClient& http) {
   http.setConnectTimeout(kConnectAttemptMs);
   const unsigned long deadline = millis() + kRequestTimeoutMs;
+  int attempts = 0;
   while (millis() < deadline) {
     pollNetwork();
     const int code = http.GET();
@@ -48,7 +50,12 @@ int performGetWithPoll(HTTPClient& http) {
         code != HTTPC_ERROR_NOT_CONNECTED) {
       return code;
     }
-    delay(5);
+    // Cap retries so a persistent failure (e.g. heap too low for TLS) doesn't
+    // spin hundreds of times spamming the log instead of failing this cycle.
+    if (++attempts >= kMaxConnectRetries) {
+      return code;
+    }
+    delay(150);
   }
   return HTTPC_ERROR_READ_TIMEOUT;
 }

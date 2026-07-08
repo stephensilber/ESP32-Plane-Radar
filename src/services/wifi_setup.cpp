@@ -81,6 +81,7 @@ h1,h2,h3{color:var(--acc);text-transform:uppercase;letter-spacing:2px;text-shado
 .msg{max-width:360px;margin:24px auto;padding:16px;text-align:center;border:1px solid var(--acc);border-radius:8px;background:#04160c;color:var(--acc);text-transform:uppercase;letter-spacing:2px;font-weight:700;box-shadow:0 0 16px rgba(0,230,118,.3)}
 button,input[type=submit]{width:100%;color:var(--fg);background:#064a2a;border:1px solid var(--acc);border-radius:6px;padding:11px;margin-top:6px;font-weight:700;text-transform:uppercase;letter-spacing:1px;text-shadow:0 0 5px rgba(0,230,118,.5);transition:box-shadow .15s}
 button:hover,input[type=submit]:hover{box-shadow:0 0 12px rgba(0,230,118,.55)}
+button#uploadbin{background:#064a2a}
 input[type=text],input[type=password],input[type=number],select{width:100%;color:var(--fg);background:#02160d;border:1px solid var(--dim);border-radius:4px;padding:9px}
 input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 9px rgba(0,230,118,.45)}
 input[type=checkbox]{accent-color:var(--acc);transform:scale(1.25);margin:8px 8px 8px 0}
@@ -633,7 +634,7 @@ void bootButtonPollLongPress() {
     const unsigned long down_ms = s_boot_down_ms;
     portEXIT_CRITICAL(&s_boot_mux);
 
-    if (!s_long_press_handled &&
+    if (!s_long_press_handled && !s_ota_active &&
         millis() - down_ms >= config::kBootResetHoldMs) {
       s_long_press_handled = true;
       Serial.println("BOOT held — resetting WiFi");

@@ -17,7 +17,8 @@ namespace {
 constexpr char kApiBase[] = "https://opendata.adsb.fi/api/v3/lat/";
 constexpr float kKmPerNm = 1.852f;
 constexpr int kConnectAttemptMs = 200;
-constexpr unsigned long kRequestTimeoutMs = 10000;
+// Kept tight so a slow/hung fetch can't freeze the single-loop render for long.
+constexpr unsigned long kRequestTimeoutMs = 4000;
 
 // Double-buffered: the fetch (a background task in performance mode) fills the
 // inactive buffer, then publishes it by flipping s_active in a single write, so

@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 #include "config.h"
 #include "hardware/display.h"
@@ -28,6 +29,7 @@ uint16_t kColorBackground = 0x0000;
 uint16_t kColorGrid = 0x0320;
 uint16_t kColorLabel = 0xFFFF;
 uint16_t kColorCenter = 0xFFFF;
+uint16_t kColorFetchDot = 0xFFFF;
 uint16_t kColorAircraft = 0x001F;
 uint16_t kColorMilitary = 0x001F;
 uint16_t kColorCommercial = 0x001F;
@@ -62,6 +64,7 @@ int s_scale_label_h = 0;
 lgfx::LovyanGFX* s_draw = &tft;
 LGFX_Sprite s_frame(&tft);
 bool s_frame_ready = false;
+volatile bool s_fetch_active = false;
 
 class DrawScope {
  public:
@@ -193,6 +196,8 @@ void initPalette() {
   radar::kColorGrid = tft.color565(radar::kGridR, radar::kGridG, radar::kGridB);
   radar::kColorLabel = tft.color565(255, 255, 255);
   radar::kColorCenter = tft.color565(255, 255, 255);
+  radar::kColorFetchDot =
+      aircraftColor565(radar::kFetchDotR, radar::kFetchDotG, radar::kFetchDotB);
   radar::kColorAircraft =
       aircraftColor565(radar::kAircraftR, radar::kAircraftG, radar::kAircraftB);
   radar::kColorMilitary =
@@ -543,17 +548,32 @@ struct TagLayout {
   bool tag_on_right = false;
 };
 
-/** Number of non-empty tag lines (callsign / type+route / altitude). */
-int countTagLines(const services::adsb::Aircraft& plane) {
+/** Tag bottom line: ground speed (mph) or altitude, per the setting. */
+void tagBottomLine(const services::adsb::Aircraft& plane, char* buf, size_t len) {
+  if (ui::radar::showSpeed()) {
+    if (plane.gs_knots > 0.5f) {
+      snprintf(buf, len, "%d mph",
+               static_cast<int>(lroundf(plane.gs_knots * 1.15078f)));
+    } else {
+      buf[0] = '\0';
+    }
+  } else {
+    strncpy(buf, plane.alt, len - 1);
+    buf[len - 1] = '\0';
+  }
+}
+
+/** Number of non-empty tag lines (callsign / type+route / bottom). */
+int countTagLines(const services::adsb::Aircraft& plane, const char* bottom) {
   int n = 0;
   if (plane.callsign[0] != '\0') ++n;
   if (plane.type[0] != '\0') ++n;
-  if (plane.alt[0] != '\0') ++n;
+  if (bottom[0] != '\0') ++n;
   return n;
 }
 
 int measureTagBlockWidth(const services::adsb::Aircraft& plane,
-                         const char* route) {
+                         const char* route, const char* bottom) {
   applyTagStyle();
   int max_w = 0;
   if (plane.callsign[0] != '\0') {
@@ -566,8 +586,8 @@ int measureTagBlockWidth(const services::adsb::Aircraft& plane,
     }
     max_w = std::max(max_w, w);
   }
-  if (plane.alt[0] != '\0') {
-    max_w = std::max(max_w, static_cast<int>(s_draw->textWidth(plane.alt)));
+  if (bottom[0] != '\0') {
+    max_w = std::max(max_w, static_cast<int>(s_draw->textWidth(bottom)));
   }
   return max_w;
 }
@@ -593,7 +613,7 @@ void computeTagLayout(int x, int y, int block_w, int block_h, TagLayout* out) {
 }
 
 void drawTagLines(const services::adsb::Aircraft& plane, const char* route,
-                  const TagLayout& layout) {
+                  const char* bottom, const TagLayout& layout) {
   applyTagStyle();
   s_draw->setTextDatum(layout.tag_on_right ? textdatum_t::top_left
                                            : textdatum_t::top_right);
@@ -634,9 +654,9 @@ void drawTagLines(const services::adsb::Aircraft& plane, const char* route,
     ly += line_h;
   }
 
-  if (plane.alt[0] != '\0') {
+  if (bottom[0] != '\0') {
     s_draw->setTextColor(radar::kColorTagAltitude, radar::kColorBackground);
-    s_draw->drawString(plane.alt, anchor_x, ly);
+    s_draw->drawString(bottom, anchor_x, ly);
   }
 }
 
@@ -763,14 +783,16 @@ void drawAircraft() {
     const size_t i = items[d].index;
     char route[2 * services::route::kCodeLen];
     routeTagFor(planes[i], route, sizeof(route));
-    const int nlines = countTagLines(planes[i]);
-    const int block_w = measureTagBlockWidth(planes[i], route);
+    char bottom[12];
+    tagBottomLine(planes[i], bottom, sizeof(bottom));
+    const int nlines = countTagLines(planes[i], bottom);
+    const int block_w = measureTagBlockWidth(planes[i], route, bottom);
     if (nlines == 0 || block_w <= 0) {
       continue;
     }
     TagLayout layout;
     computeTagLayout(items[d].x, items[d].y, block_w, line_h * nlines, &layout);
-    drawTagLines(planes[i], route, layout);
+    drawTagLines(planes[i], route, bottom, layout);
   }
 }
 
@@ -846,7 +868,9 @@ void drawCrosshairs(int cx, int cy, int radius, uint16_t color) {
 }
 
 void drawCenterDot(int cx, int cy) {
-  s_draw->fillSmoothCircle(cx, cy, radar::kCenterDotRadius, radar::kColorCenter);
+  const uint16_t color =
+      s_fetch_active ? radar::kColorFetchDot : radar::kColorCenter;
+  s_draw->fillSmoothCircle(cx, cy, radar::kCenterDotRadius, color);
 }
 
 void drawCardinalLabels() {
@@ -953,5 +977,7 @@ void radarDisplayRefreshAircraft() {
 
   radarDisplayDraw();
 }
+
+void radarSetFetchActive(bool active) { s_fetch_active = active; }
 
 }  // namespace ui

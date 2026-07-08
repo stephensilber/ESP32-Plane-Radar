@@ -33,6 +33,10 @@ constexpr int kRingCount = 4;
 constexpr float kGridStrokeHalfWidth = 1.0f;
 
 constexpr int kCenterDotRadius = 2;
+/** Light orange for the center dot during a fetch (subtle activity cue). */
+constexpr uint8_t kFetchDotR = 255;
+constexpr uint8_t kFetchDotG = 176;
+constexpr uint8_t kFetchDotB = 74;
 
 /** Filled aircraft symbol (nose triangle). */
 constexpr int kAircraftNoseLenPx = 8;
@@ -120,6 +124,7 @@ extern uint16_t kColorBackground;
 extern uint16_t kColorGrid;
 extern uint16_t kColorLabel;
 extern uint16_t kColorCenter;
+extern uint16_t kColorFetchDot;  // center dot while a network fetch is in flight
 extern uint16_t kColorAircraft;
 extern uint16_t kColorMilitary;
 extern uint16_t kColorCommercial;

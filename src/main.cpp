@@ -98,7 +98,13 @@ bool runFetchCycle() {
 }
 
 void fetchAndDrawAircraft() {
-  if (runFetchCycle()) {
+  // Paint the orange fetch dot before we block, so it's visible for the whole
+  // (single-loop) fetch even though nothing redraws during it.
+  ui::radarSetFetchActive(true);
+  ui::radarDisplayRefreshAircraft();
+  const bool ok = runFetchCycle();
+  ui::radarSetFetchActive(false);
+  if (ok) {
     ui::radarDisplayRefreshAircraft();
   }
   handleBootButton();
@@ -117,11 +123,15 @@ void perfNetTask(void*) {
       const unsigned long now = millis();
       if (now - last_fetch >= config::kAdsbFetchIntervalMs) {
         last_fetch = now;
+        ui::radarSetFetchActive(true);
         runFetchCycle();
+        ui::radarSetFetchActive(false);
       } else if (ui::radar::showRoute() &&
                  now - last_route >= config::kRouteLookupIntervalMs) {
         last_route = now;
+        ui::radarSetFetchActive(true);
         services::route::pump();
+        ui::radarSetFetchActive(false);
       }
     }
     vTaskDelay(pdMS_TO_TICKS(25));
@@ -207,7 +217,11 @@ void loop() {
       // One blocking route lookup, spread out from the fetch so its TLS
       // handshake only hitches motion occasionally instead of every cycle.
       g_last_route_ms = millis();
+      ui::radarSetFetchActive(true);
+      ui::radarDisplayRefreshAircraft();
       services::route::pump();
+      ui::radarSetFetchActive(false);
+      ui::radarDisplayRefreshAircraft();
       g_last_render_ms = millis();
     } else if ((g_perf_mode || ui::radar::smoothMotion()) &&
                millis() - g_last_render_ms >= ui::radar::renderIntervalMs()) {

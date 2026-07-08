@@ -19,6 +19,7 @@
 namespace {
 
 bool g_radar_visible = false;
+bool g_perf_mode = false;  // network I/O on a background task (read once at boot)
 unsigned long g_wifi_down_since = 0;
 unsigned long g_last_reconnect_ms = 0;
 unsigned long g_last_adsb_fetch_ms = 0;
@@ -75,16 +76,14 @@ void noteVisibleRoutes() {
   }
 }
 
-void fetchAndDrawAircraft() {
+/** Data-only fetch: pull positions, record trails, register routes. No drawing,
+ *  so it is safe to run from the background task in performance mode. */
+bool runFetchCycle() {
   const float fetch_km = ui::radar::fetchRadiusKm();
   if (!services::adsb::fetchUpdate(services::location::lat(),
                                    services::location::lon(), fetch_km)) {
-    handleBootButton();
-    return;
+    return false;
   }
-  ui::radarDisplayRefreshAircraft();
-  handleBootButton();
-
   if (ui::radar::showTrails()) {
     const size_t n = services::adsb::aircraftCount();
     const services::adsb::Aircraft* planes = services::adsb::aircraftList();
@@ -92,11 +91,37 @@ void fetchAndDrawAircraft() {
       services::trail::append(planes[i].hex, planes[i].lat, planes[i].lon);
     }
   }
-
-  // Register callsigns (cheap); the blocking lookup runs on its own throttled
-  // schedule in loop() so it doesn't stall motion every fetch.
   if (ui::radar::showRoute()) {
     noteVisibleRoutes();
+  }
+  return true;
+}
+
+void fetchAndDrawAircraft() {
+  if (runFetchCycle()) {
+    ui::radarDisplayRefreshAircraft();
+  }
+  handleBootButton();
+}
+
+/** Performance mode: all blocking network I/O on its own FreeRTOS task, so the
+ *  main loop (render + buttons + portal) never stalls on a fetch or lookup. */
+void perfNetTask(void*) {
+  unsigned long last_fetch = 0;
+  unsigned long last_route = 0;
+  for (;;) {
+    if (WiFi.status() == WL_CONNECTED) {
+      const unsigned long now = millis();
+      if (now - last_fetch >= config::kAdsbFetchIntervalMs) {
+        last_fetch = now;
+        runFetchCycle();
+      } else if (ui::radar::showRoute() &&
+                 now - last_route >= config::kRouteLookupIntervalMs) {
+        last_route = now;
+        services::route::pump();
+      }
+    }
+    vTaskDelay(pdMS_TO_TICKS(25));
   }
 }
 
@@ -117,11 +142,27 @@ void setup() {
   }
   services::location::init();
   ui::radar::rangeInit();
-  services::adsb::setPollFn(wifiLoop);
-  services::route::setPollFn(wifiLoop);
+  g_perf_mode = ui::radar::perfMode();
+  // The poll hook pumps the portal during a blocking fetch; only needed in the
+  // single-loop mode. In performance mode the fetch runs on its own task and
+  // the main loop services the portal on its own.
+  services::adsb::setPollFn(g_perf_mode ? nullptr : wifiLoop);
+  services::route::setPollFn(g_perf_mode ? nullptr : wifiLoop);
 
   if (wifiSetupConnect()) {
     showRadarIfConnected();
+  }
+
+  if (g_perf_mode) {
+    if (xTaskCreate(perfNetTask, "net", 20480, nullptr, 1, nullptr) == pdPASS) {
+      Serial.println("Performance mode: network on background task");
+    } else {
+      // Couldn't spawn the task — fall back to the single-loop path.
+      g_perf_mode = false;
+      services::adsb::setPollFn(wifiLoop);
+      services::route::setPollFn(wifiLoop);
+      Serial.println("Performance mode: task create failed, using single loop");
+    }
   }
 }
 
@@ -153,20 +194,22 @@ void loop() {
     if (!g_radar_visible) {
       showRadarIfConnected();
       g_last_render_ms = millis();
-    } else if (millis() - g_last_adsb_fetch_ms >= config::kAdsbFetchIntervalMs) {
+    } else if (!g_perf_mode &&
+               millis() - g_last_adsb_fetch_ms >= config::kAdsbFetchIntervalMs) {
       g_last_adsb_fetch_ms = millis();
       fetchAndDrawAircraft();
       g_last_render_ms = millis();
-    } else if (ui::radar::showRoute() &&
+    } else if (!g_perf_mode && ui::radar::showRoute() &&
                millis() - g_last_route_ms >= config::kRouteLookupIntervalMs) {
       // One blocking route lookup, spread out from the fetch so its TLS
       // handshake only hitches motion occasionally instead of every cycle.
       g_last_route_ms = millis();
       services::route::pump();
       g_last_render_ms = millis();
-    } else if (ui::radar::smoothMotion() &&
+    } else if ((g_perf_mode || ui::radar::smoothMotion()) &&
                millis() - g_last_render_ms >= ui::radar::renderIntervalMs()) {
-      // Re-render between fetches so dead-reckoned motion stays smooth.
+      // Re-render between fetches for smooth motion. In performance mode the
+      // background task supplies fresh data; here we just draw it.
       g_last_render_ms = millis();
       ui::radarDisplayRefreshAircraft();
       handleBootButton();

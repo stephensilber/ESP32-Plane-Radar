@@ -49,6 +49,7 @@ The same portal runs on the setup AP and on the device’s LAN IP while connecte
 | **Show flight route** | Fetch origin→destination airport codes for commercial flights from [adsb.lol](https://api.adsb.lol/) and show them beside the model (off by default) |
 | **Smooth motion** | Dead-reckon targets between polls so movement is continuous instead of stepping every ~3 s (on by default) |
 | **Show aircraft trails** | Draw a fading breadcrumb trail (~90 s) behind each aircraft, built up from live positions as you watch (off by default) |
+| **Performance mode** | Run ADS-B fetches and route lookups on a background FreeRTOS task so rendering, controls, and the portal never stall on network I/O (off by default; restart to apply) |
 | **Frame rate** | Render rate for smooth motion, 1–30 FPS (default 10); higher is smoother but works the CPU harder |
 | **Radar rotation** | Drag the compass so N points to real north relative to the top of the screen; rotates the grid, cardinal labels, and aircraft while text stays upright (0° by default) |
 

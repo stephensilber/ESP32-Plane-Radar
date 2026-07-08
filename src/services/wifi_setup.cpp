@@ -148,6 +148,11 @@ char s_trails_checkbox_attrs[32] = "type=\"checkbox\"";
 WiFiManagerParameter s_param_trails("show_trails", "Show aircraft trails", "T",
                                     2, s_trails_checkbox_attrs, WFM_LABEL_AFTER);
 
+char s_perf_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_perf("perf_mode",
+                                  "Performance mode (restart to apply)", "T", 2,
+                                  s_perf_checkbox_attrs, WFM_LABEL_AFTER);
+
 // A checkbox (label-after) sits right before this numeric field (label-before),
 // so their labels collide on one line without a break between them.
 WiFiManagerParameter s_param_spacer("<br>");
@@ -216,6 +221,9 @@ void refreshPortalParamDefaults() {
   snprintf(s_trails_checkbox_attrs, sizeof(s_trails_checkbox_attrs),
            "type=\"checkbox\"%s", ui::radar::showTrails() ? " checked" : "");
   s_param_trails.setValue("T", 2);
+  snprintf(s_perf_checkbox_attrs, sizeof(s_perf_checkbox_attrs),
+           "type=\"checkbox\"%s", ui::radar::perfMode() ? " checked" : "");
+  s_param_perf.setValue("T", 2);
   char fps_buf[5];
   snprintf(fps_buf, sizeof(fps_buf), "%d", ui::radar::frameRateFps());
   s_param_fps.setValue(fps_buf, 4);
@@ -237,6 +245,7 @@ void onPortalParamsSaved() {
   ui::radar::saveShowRouteFromPortal(s_param_show_route.getValue());
   ui::radar::saveSmoothMotionFromPortal(s_param_smooth.getValue());
   ui::radar::saveTrailsFromPortal(s_param_trails.getValue());
+  ui::radar::savePerfModeFromPortal(s_param_perf.getValue());
   ui::radar::saveFpsFromPortal(s_param_fps.getValue());
   ui::radar::saveHeadingFromPortal(s_param_heading.getValue());
 }
@@ -253,6 +262,7 @@ void attachPortalParams(WiFiManager& wm) {
   wm.addParameter(&s_param_show_route);
   wm.addParameter(&s_param_smooth);
   wm.addParameter(&s_param_trails);
+  wm.addParameter(&s_param_perf);
   wm.addParameter(&s_param_spacer);
   wm.addParameter(&s_param_fps);
   wm.addParameter(&s_param_compass);

@@ -21,6 +21,7 @@ constexpr char kPrefsHeliIconKey[] = "heliIcon";
 constexpr char kPrefsShowRouteKey[] = "showRoute";
 constexpr char kPrefsSmoothKey[] = "smoothMot";
 constexpr char kPrefsTrailsKey[] = "trails";
+constexpr char kPrefsPerfKey[] = "perfMode";
 constexpr char kPrefsHeadingKey[] = "hdgOffset";
 constexpr char kPrefsFpsKey[] = "fps";
 constexpr int kDefaultFps = 10;
@@ -38,6 +39,7 @@ bool s_heli_icon = true;
 bool s_show_route = false;
 bool s_smooth_motion = true;
 bool s_show_trails = false;
+bool s_perf_mode = false;
 int16_t s_heading_offset = 0;
 int16_t s_fps = kDefaultFps;
 
@@ -101,6 +103,7 @@ void rangeInit() {
   s_show_route = s_prefs.getBool(kPrefsShowRouteKey, false);
   s_smooth_motion = s_prefs.getBool(kPrefsSmoothKey, true);
   s_show_trails = s_prefs.getBool(kPrefsTrailsKey, false);
+  s_perf_mode = s_prefs.getBool(kPrefsPerfKey, false);
   s_heading_offset = s_prefs.getShort(kPrefsHeadingKey, 0);
   s_fps = s_prefs.getShort(kPrefsFpsKey, kDefaultFps);
   if (s_fps < kMinFps || s_fps > kMaxFps) {
@@ -138,6 +141,8 @@ bool showRoute() { return s_show_route; }
 bool smoothMotion() { return s_smooth_motion; }
 
 bool showTrails() { return s_show_trails; }
+
+bool perfMode() { return s_perf_mode; }
 
 float headingOffsetDeg() { return static_cast<float>(s_heading_offset); }
 
@@ -189,6 +194,13 @@ void saveTrailsFromPortal(const char* checkbox_value) {
   Serial.printf("Trails: %s\n", s_show_trails ? "on" : "off");
 }
 
+void savePerfModeFromPortal(const char* checkbox_value) {
+  s_perf_mode = portalCheckboxChecked(checkbox_value);
+  saveBoolPref(kPrefsPerfKey, s_perf_mode);
+  Serial.printf("Performance mode: %s (restart to apply)\n",
+                s_perf_mode ? "on" : "off");
+}
+
 void saveFpsFromPortal(const char* value) {
   int fps = (value != nullptr) ? atoi(value) : kDefaultFps;
   if (fps < kMinFps) fps = kMinFps;
@@ -234,6 +246,7 @@ void unitsReset() {
   s_show_route = false;
   s_smooth_motion = true;
   s_show_trails = false;
+  s_perf_mode = false;
   s_heading_offset = 0;
   s_fps = kDefaultFps;
   if (s_prefs.begin(kPrefsNamespace, false)) {
@@ -244,6 +257,7 @@ void unitsReset() {
     s_prefs.remove(kPrefsShowRouteKey);
     s_prefs.remove(kPrefsSmoothKey);
     s_prefs.remove(kPrefsTrailsKey);
+    s_prefs.remove(kPrefsPerfKey);
     s_prefs.remove(kPrefsHeadingKey);
     s_prefs.remove(kPrefsFpsKey);
     s_prefs.end();

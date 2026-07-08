@@ -116,7 +116,7 @@ void perfNetTask(void*) {
   unsigned long last_fetch = 0;
   unsigned long last_route = 0;
   for (;;) {
-    if (WiFi.status() == WL_CONNECTED) {
+    if (WiFi.status() == WL_CONNECTED && !wifiOtaActive()) {
       const unsigned long now = millis();
       if (now - last_fetch >= config::kAdsbFetchIntervalMs) {
         last_fetch = now;
@@ -204,12 +204,12 @@ void loop() {
     if (!g_radar_visible) {
       showRadarIfConnected();
       g_last_render_ms = millis();
-    } else if (!g_perf_mode &&
+    } else if (!g_perf_mode && !wifiOtaActive() &&
                millis() - g_last_adsb_fetch_ms >= config::kAdsbFetchIntervalMs) {
       g_last_adsb_fetch_ms = millis();
       fetchAndDrawAircraft();
       g_last_render_ms = millis();
-    } else if (!g_perf_mode && ui::radar::showRoute() &&
+    } else if (!g_perf_mode && !wifiOtaActive() && ui::radar::showRoute() &&
                millis() - g_last_route_ms >= config::kRouteLookupIntervalMs) {
       // One blocking route lookup, spread out from the fetch so its TLS
       // handshake only hitches motion occasionally instead of every cycle.

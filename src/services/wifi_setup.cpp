@@ -59,6 +59,7 @@ constexpr char kWifiPrefsNamespace[] = "wifi";
 constexpr char kPrefsForcePortalKey[] = "portal";
 
 bool s_force_config_portal = false;
+volatile bool s_ota_active = false;
 WiFiManager s_wm;
 bool s_wm_configured = false;
 
@@ -402,6 +403,12 @@ void ensureWifiManager() {
                            IPAddress(255, 255, 255, 0));
   s_wm.setHostname(config::kPortalHostname);
   s_wm.setAPCallback(onConfigPortalApStarted);
+  // An OTA upload needs the whole radio to itself; latch a flag when it starts
+  // so the fetch task/loop stops competing for sockets and heap mid-transfer.
+  s_wm.setPreOtaUpdateCallback([]() {
+    s_ota_active = true;
+    Serial.println("OTA update starting — pausing network fetches");
+  });
   s_wm.setCustomHeadElement(kPortalCss);
   // Settings on their own "Setup" page (/param), not crammed under the Wi-Fi
   // scan list — keeps each page small enough to build on the constrained heap.
@@ -598,6 +605,8 @@ bool wifiReconnect() {
   Serial.println("WiFi reconnecting...");
   return connectSavedNetwork(true);
 }
+
+bool wifiOtaActive() { return s_ota_active; }
 
 void wifiLoop() {
   ensureWifiManager();
